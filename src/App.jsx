@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Home, Film, Download, X, Info, ChevronRight, ChevronLeft, AlertTriangle, Monitor, Layers, Star, Grid, List as ListIcon, Filter, ArrowDownWideNarrow, Globe, Calendar, Tv, Radio } from 'lucide-react';
+import { Search, Home, Film, Download, X, Info, ChevronRight, ChevronLeft, AlertTriangle, Monitor, Layers, Star, Grid, List as ListIcon, Filter, ArrowDownWideNarrow, Globe, Calendar, Tv, Radio, Server } from 'lucide-react';
 
 // --- CONFIGURACIÓN ---
 const TMDB_API_KEY = "342815a2b6a677bbc29fd13a6e3c1c3a"; 
 const SHEET_ID = "104RB6GK9_m_nzIakTU3MJLaDJPwt9fYmfHF3ikyixFE";
+const CACHE_VERSION = "v2_multilang"; 
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; 
+const STREAM_CHANNEL = "elpintaunas"; // Canal definitivo
 
 const LANGUAGE_MAP = {
   'es': 'Español', 'es-es': 'Español (España)', 'es-mx': 'Español (Latino)',
@@ -13,11 +16,281 @@ const LANGUAGE_MAP = {
   'fr': 'Francés', 'it': 'Italiano', 'de': 'Alemán', 'ja': 'Japonés', 'jp': 'Japonés', 'ko': 'Coreano', 'pt': 'Portugués'
 };
 
-const TMDB_GENRES = {
-  28: "Acción", 12: "Aventura", 16: "Animación", 35: "Comedia", 80: "Crimen", 99: "Documental",
-  18: "Drama", 10751: "Familia", 14: "Fantasía", 36: "Historia", 27: "Terror", 10402: "Música",
-  9648: "Misterio", 10749: "Romance", 878: "Ciencia Ficción", 10770: "Película de TV",
-  53: "Suspense", 10752: "Bélica", 37: "Western"
+// --- DICCIONARIO DE GÉNEROS ---
+const GENRE_TRANSLATIONS = {
+    'Acción': { ca: 'Acció', gl: 'Acción', eu: 'Ekintza', es: 'Acción' },
+    'Action': { ca: 'Acció', gl: 'Acción', eu: 'Ekintza', es: 'Acción' },
+    'Aventura': { ca: 'Aventura', gl: 'Aventura', eu: 'Abentura', es: 'Aventura' },
+    'Adventure': { ca: 'Aventura', gl: 'Aventura', eu: 'Abentura', es: 'Aventura' },
+    'Animación': { ca: 'Animació', gl: 'Animación', eu: 'Animazioa', es: 'Animación' },
+    'Animation': { ca: 'Animació', gl: 'Animación', eu: 'Animazioa', es: 'Animación' },
+    'Comedia': { ca: 'Comèdia', gl: 'Comedia', eu: 'Komedia', es: 'Comedia' },
+    'Comedy': { ca: 'Comèdia', gl: 'Comedia', eu: 'Komedia', es: 'Comedia' },
+    'Crimen': { ca: 'Crim', gl: 'Crime', eu: 'Krimena', es: 'Crimen' },
+    'Crime': { ca: 'Crim', gl: 'Crime', eu: 'Krimena', es: 'Crimen' },
+    'Documental': { ca: 'Documental', gl: 'Documental', eu: 'Dokumentala', es: 'Documental' },
+    'Documentary': { ca: 'Documental', gl: 'Documental', eu: 'Dokumentala', es: 'Documental' },
+    'Drama': { ca: 'Drama', gl: 'Drama', eu: 'Drama', es: 'Drama' },
+    'Familia': { ca: 'Família', gl: 'Familia', eu: 'Familia', es: 'Familia' },
+    'Family': { ca: 'Família', gl: 'Familia', eu: 'Familia', es: 'Familia' },
+    'Fantasía': { ca: 'Fantasia', gl: 'Fantasía', eu: 'Fantasia', es: 'Fantasía' },
+    'Fantasy': { ca: 'Fantasia', gl: 'Fantasía', eu: 'Fantasia', es: 'Fantasía' },
+    'Historia': { ca: 'Història', gl: 'Historia', eu: 'Historia', es: 'Historia' },
+    'History': { ca: 'Història', gl: 'Historia', eu: 'Historia', es: 'Historia' },
+    'Terror': { ca: 'Terror', gl: 'Terror', eu: 'Beldurra', es: 'Terror' },
+    'Horror': { ca: 'Terror', gl: 'Terror', eu: 'Beldurra', es: 'Terror' },
+    'Música': { ca: 'Música', gl: 'Música', eu: 'Musika', es: 'Música' },
+    'Music': { ca: 'Música', gl: 'Música', eu: 'Musika', es: 'Música' },
+    'Misterio': { ca: 'Misteri', gl: 'Misterio', eu: 'Misterioa', es: 'Misterio' },
+    'Mystery': { ca: 'Misteri', gl: 'Misterio', eu: 'Misterioa', es: 'Misterio' },
+    'Romance': { ca: 'Romanç', gl: 'Romance', eu: 'Erromantzea', es: 'Romance' },
+    'Ciencia ficción': { ca: 'Ciència ficció', gl: 'Ciencia ficción', eu: 'Zientzia fikzioa', es: 'Ciencia ficción' },
+    'Science Fiction': { ca: 'Ciència ficció', gl: 'Ciencia ficción', eu: 'Zientzia fikzioa', es: 'Ciencia ficción' },
+    'Película de TV': { ca: 'Pel·lícula de TV', gl: 'Película de TV', eu: 'Telebistako filma', es: 'Película de TV' },
+    'TV Movie': { ca: 'Pel·lícula de TV', gl: 'Película de TV', eu: 'Telebistako filma', es: 'Película de TV' },
+    'Suspense': { ca: 'Suspens', gl: 'Suspense', eu: 'Suspensea', es: 'Suspense' },
+    'Thriller': { ca: 'Suspens', gl: 'Suspense', eu: 'Suspensea', es: 'Suspense' },
+    'Bélica': { ca: 'Bèl·lica', gl: 'Bélica', eu: 'Gerra', es: 'Bélica' },
+    'War': { ca: 'Bèl·lica', gl: 'Bélica', eu: 'Gerra', es: 'Bélica' },
+    'Western': { ca: 'Western', gl: 'Western', eu: 'Western', es: 'Western' }
+};
+
+// --- DICCIONARIO DE IDIOMAS DETALLE ---
+const LANG_TRANSLATIONS = {
+    'es': {
+        'Español': 'Español', 'Español (España)': 'Español (España)', 'Español (Latino)': 'Español (Latino)',
+        'Inglés': 'Inglés', 'Inglés (EEUU)': 'Inglés (EEUU)', 'Inglés (Reino Unido)': 'Inglés (Reino Unido)',
+        'Catalán': 'Catalán', 'Valenciano': 'Valenciano', 'Euskera': 'Euskera', 'Gallego': 'Gallego',
+        'Francés': 'Francés', 'Italiano': 'Italiano', 'Alemán': 'Alemán', 'Japonés': 'Japonés', 'Portugués': 'Portugués'
+    },
+    'ca': {
+        'Español': 'Espanyol', 'Español (España)': 'Espanyol (Espanya)', 'Español (Latino)': 'Espanyol (Llatí)',
+        'Inglés': 'Anglès', 'Inglés (EEUU)': 'Anglès (EUA)', 'Inglés (Reino Unido)': 'Anglès (Regne Unit)',
+        'Catalán': 'Català', 'Valenciano': 'Valencià', 'Euskera': 'Basc', 'Gallego': 'Gallec',
+        'Francés': 'Francès', 'Italiano': 'Italià', 'Alemán': 'Alemany', 'Japonés': 'Japonès', 'Portugués': 'Portuguès'
+    },
+    'gl': {
+        'Español': 'Español', 'Español (España)': 'Español (España)', 'Español (Latino)': 'Español (Latino)',
+        'Inglés': 'Inglés', 'Inglés (EEUU)': 'Inglés (EEUU)', 'Inglés (Reino Unido)': 'Inglés (Reino Unido)',
+        'Catalán': 'Catalán', 'Valenciano': 'Valenciano', 'Euskera': 'Euskera', 'Gallego': 'Galego',
+        'Francés': 'Francés', 'Italiano': 'Italiano', 'Alemán': 'Alemán', 'Japonés': 'Xaponés', 'Portugués': 'Portugués'
+    },
+    'eu': {
+        'Español': 'Gaztelania', 'Español (España)': 'Gaztelania (Espainia)', 'Español (Latino)': 'Gaztelania (Latino)',
+        'Inglés': 'Ingelesa', 'Inglés (EEUU)': 'Ingelesa (AEB)', 'Inglés (Reino Unido)': 'Ingelesa (Erresuma Batua)',
+        'Catalán': 'Katalana', 'Valenciano': 'Valentziera', 'Euskera': 'Euskara', 'Gallego': 'Galiziera',
+        'Francés': 'Frantsesa', 'Italiano': 'Italiera', 'Alemán': 'Alemana', 'Japonés': 'Japoniera', 'Portugués': 'Portugesa'
+    }
+};
+
+// --- DICCIONARIO DE INTERFAZ ---
+const UI_TRANSLATIONS = {
+  'es': {
+    inicio: 'INICIO', pelis: 'PELIS', series: 'SERIES', directos: 'DIRECTOS',
+    buscar: 'Buscar películas...', recomendados: 'Recomendados de hoy',
+    mejor_valoradas: 'Mejor Valoradas', ultimos: 'Últimos Lanzamientos',
+    sagas: 'Sagas y Colecciones', ver_todos: 'Ver todos',
+    filtro_genero: '+ Género', filtro_calidad: '+ Calidad', filtro_idioma: '+ Idioma',
+    filtro_ano: '+ Año', orden_defecto: 'Orden por defecto', orden_az: 'Alfabético (A - Z)',
+    orden_za: 'Alfabético (Z - A)', orden_rating: 'Mejor Valoradas', orden_year: 'Más Recientes',
+    limpiar: 'Limpiar todos', resultados: 'Resultados de búsqueda',
+    cargar_mas: 'Cargar más resultados', restantes: 'restantes',
+    volver: 'VOLVER', recomendado_para_ti: 'RECOMENDADO PARA TI', ver_detalles: 'VER DETALLES',
+    coleccion_oficial: 'Colección Oficial', pelis_biblioteca: 'Películas en tu biblioteca',
+    descargar: 'DESCARGAR A MI BIBLIOTECA', enlace_no_disp: 'ENLACE NO DISPONIBLE',
+    mas_saga: 'Más de esta saga', titulos_similares: 'Títulos similares recomendados',
+    sin_descripcion: 'Sin descripción disponible.', sinc_biblio: 'Sincronizando con tu biblioteca...',
+    calidad: 'Calidad', idiomas: 'Idiomas', año: 'Año', error_fallo: 'Vaya, algo ha fallado',
+    proximamente: 'Próximamente...', prep_series: 'Estamos preparando todo el catálogo de series para integrarlo en la plataforma. ¡Vuelve muy pronto!',
+    acceso_premium: 'Acceso Premium', pass_directo: 'Contraseña del Directo',
+    desc_directo: 'El directo está protegido. Verifica que tienes el rol requerido en nuestro servidor de Discord para obtener la contraseña actual.',
+    verificando: 'Verificando...', refrescar_pass: '🔄 Refrescar Contraseña', verificar_rol: 'Verificar mi Rol en Discord',
+    clave_reproductor: 'Clave del Reproductor', intro_clave: 'La contraseña se ha detectado y se inyectará automáticamente en el reproductor.',
+    activacion_premium: 'Opciones de Servidor', stream_desbloqueado: '¡Has desbloqueado el reproductor nativo! Disfruta del directo sin restricciones.',
+    vacio: 'Vacío', sin_pass: 'Sin Contraseña', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normal (Público)'
+  },
+  'ca': {
+    inicio: 'INICI', pelis: 'PEL·LIS', series: 'SÈRIES', directos: 'DIRECTES',
+    buscar: 'Cercar pel·lícules...', recomendados: 'Recomanats d\'avui',
+    mejor_valoradas: 'Més ben valorades', ultimos: 'Últims Llançaments',
+    sagas: 'Sagues i Col·leccions', ver_todos: 'Veure tots',
+    filtro_genero: '+ Gènere', filtro_calidad: '+ Qualitat', filtro_idioma: '+ Idioma',
+    filtro_ano: '+ Any', orden_defecto: 'Ordre per defecte', orden_az: 'Alfabètic (A - Z)',
+    orden_za: 'Alfabètic (Z - A)', orden_rating: 'Més ben valorades', orden_year: 'Més Recents',
+    limpiar: 'Netejar tots', resultados: 'Resultats de cerca',
+    cargar_mas: 'Carregar més resultats', restantes: 'restants',
+    volver: 'TORNAR', recomendado_para_ti: 'RECOMANAT PER A TU', ver_detalles: 'VEURE DETALLS',
+    coleccion_oficial: 'Col·lecció Oficial', pelis_biblioteca: 'Pel·lícules a la teva biblioteca',
+    descargar: 'DESCARREGAR A LA MEVA BIBLIOTECA', enlace_no_disp: 'ENLLAÇ NO DISPONIBLE',
+    mas_saga: 'Més d\'aquesta saga', titulos_similares: 'Títols similars recomanats',
+    sin_descripcion: 'Sense descripció disponible.', sinc_biblio: 'Sincronitzant amb la teva biblioteca...',
+    calidad: 'Qualitat', idiomas: 'Idiomes', año: 'Any', error_fallo: 'Vaja, alguna cosa ha fallat',
+    proximamente: 'Aviat...', prep_series: 'Estem preparant tot el catàleg de sèries per integrar-lo a la plataforma. Torna molt aviat!',
+    acceso_premium: 'Accés Premium', pass_directo: 'Contrasenya del Directe',
+    desc_directo: 'El directe està protegit. Verifica que tens el rol requerit al nostre servidor de Discord per obtenir la contrasenya actual.',
+    verificando: 'Verificant...', refrescar_pass: '🔄 Refrescar Contrasenya', verificar_rol: 'Verificar el meu Rol a Discord',
+    clave_reproductor: 'Clau del Reproductor', intro_clave: 'La contrasenya s\'ha detectat i s\'injectarà automàticament al reproductor.',
+    activacion_premium: 'Opcions de Servidor', stream_desbloqueado: 'Has desbloquejat el reproductor natiu! Gaudeix del directe sense restriccions.',
+    vacio: 'Buit', sin_pass: 'Sense Contrasenya', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normal (Públic)'
+  },
+  'gl': {
+    inicio: 'INICIO', pelis: 'PELIS', series: 'SERIES', directos: 'DIRECTOS',
+    buscar: 'Buscar películas...', recomendados: 'Recomendados de hoxe',
+    mejor_valoradas: 'Mellor Valoradas', ultimos: 'Últimos Lanzamentos',
+    sagas: 'Sagas e Coleccións', ver_todos: 'Ver todos',
+    filtro_genero: '+ Xénero', filtro_calidad: '+ Calidade', filtro_idioma: '+ Idioma',
+    filtro_ano: '+ Ano', orden_defecto: 'Orde por defecto', orden_az: 'Alfabético (A - Z)',
+    orden_za: 'Alfabético (Z - A)', orden_rating: 'Mellor Valoradas', orden_year: 'Máis Recentes',
+    limpiar: 'Limpar todos', resultados: 'Resultados da busca',
+    cargar_mas: 'Cargar máis resultados', restantes: 'restantes',
+    volver: 'VOLVER', recomendado_para_ti: 'RECOMENDADO PARA TI', ver_detalles: 'VER DETALLES',
+    coleccion_oficial: 'Colección Oficial', pelis_biblioteca: 'Películas na túa biblioteca',
+    descargar: 'DESCARGAR Á MIÑA BIBLIOTECA', enlace_no_disp: 'ENLACE NON DISPOÑIBLE',
+    mas_saga: 'Máis desta saga', titulos_similares: 'Títulos similares recomendados',
+    sin_descripcion: 'Sen descrición dispoñible.', sinc_biblio: 'Sincronizando coa túa biblioteca...',
+    calidad: 'Calidade', idiomas: 'Idiomas', año: 'Ano', error_fallo: 'Oes, algo fallou',
+    proximamente: 'Proximamente...', prep_series: 'Estamos a preparar todo o catálogo de series para integralo na plataforma. Volve moi pronto!',
+    acceso_premium: 'Acceso Premium', pass_directo: 'Contrasinal do Directo',
+    desc_directo: 'O directo está protexido. Verifica que tes o rol requirido no noso servidor de Discord para obter o contrasinal actual.',
+    verificando: 'Verificando...', refrescar_pass: '🔄 Refrescar Contrasinal', verificar_rol: 'Verificar o meu Rol en Discord',
+    clave_reproductor: 'Clave do Reprodutor', intro_clave: 'O contrasinal detectouse e inxectarase automaticamente no reprodutor.',
+    activacion_premium: 'Opcións de Servidor', stream_desbloqueado: 'Desbloqueaches o reprodutor nativo! Goza do directo sen restricións.',
+    vacio: 'Baleiro', sin_pass: 'Sen Contrasinal', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normal (Público)'
+  },
+  'eu': {
+    inicio: 'HASIERA', pelis: 'FILMAK', series: 'TELESAILAK', directos: 'ZUZENEKOAK',
+    buscar: 'Filmak bilatu...', recomendados: 'Gaurko gomendioak',
+    mejor_valoradas: 'Balorazio onenak', ultimos: 'Azken Argitalpenak',
+    sagas: 'Sagak eta Bildumak', ver_todos: 'Ikusi guztiak',
+    filtro_genero: '+ Generoa', filtro_calidad: '+ Kalitatea', filtro_idioma: '+ Hizkuntza',
+    filtro_ano: '+ Urtea', orden_defecto: 'Ordena lehenetsia', orden_az: 'Alfabetikoa (A - Z)',
+    orden_za: 'Alfabetikoa (Z - A)', orden_rating: 'Balorazio onenak', orden_year: 'Berrienak',
+    limpiar: 'Garbitu denak', resultados: 'Bilaketaren emaitzak',
+    cargar_mas: 'Emaitza gehiago kargatu', restantes: 'falta dira',
+    volver: 'ITZULI', recomendado_para_ti: 'ZURETZAT GOMENDATUA', ver_detalles: 'IKUSI XEHETASUNAK',
+    coleccion_oficial: 'Bilduma Ofiziala', pelis_biblioteca: 'Filmak zure liburutegian',
+    descargar: 'NIRE LIBURUTEGIRA DESKARGATU', enlace_no_disp: 'ESTEKA EZ DAGO ESKURAGARRI',
+    mas_saga: 'Saga honetako gehiago', titulos_similares: 'Gomendatutako antzeko tituluak',
+    sin_descripcion: 'Ez dago deskribapenik eskuragarri.', sinc_biblio: 'Zure liburutegiarekin sinkronizatzen...',
+    calidad: 'Kalitatea', idiomas: 'Hizkuntzak', año: 'Urtea', error_fallo: 'Ene, zerbaitek huts egin du',
+    proximamente: 'Laster...', prep_series: 'Telesailen katalogo osoa prestatzen ari gara plataforman integratzeko. Itzuli laster!',
+    acceso_premium: 'Premium Sarbidea', pass_directo: 'Zuzenekoaren Pasahitza',
+    desc_directo: 'Zuzenekoa babestuta dago. Egiaztatu Discord zerbitzarian beharrezko rola duzula uneko pasahitza lortzeko.',
+    verificando: 'Egiaztatzen...', refrescar_pass: '🔄 Pasahitza Freskatu', verificar_rol: 'Nire Rola Discord-en Egiaztatu',
+    clave_reproductor: 'Erreproduzitzailearen Gakoa', intro_clave: 'Pasahitza atzeman da eta automatikoki txertatuko da erreproduzitzailean.',
+    activacion_premium: 'Zerbitzari Aukerak', stream_desbloqueado: 'Erreproduzitzaile natiboa desblokeatu duzu! Gozatu zuzenekoaz murrizketarik gabe.',
+    vacio: 'Hutsik', sin_pass: 'Pasahitzik Ez', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normala (Publikoa)'
+  }
+};
+
+// --- COMPONENTE REPRODUCTOR NATIVO HLS ---
+const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t }) => {
+    const videoRef = useRef(null);
+    const [error, setError] = useState(null);
+    const [status, setStatus] = useState('Autenticando...');
+
+    useEffect(() => {
+        let hls;
+
+        const initPlayer = async () => {
+            setError(null);
+            setStatus('Autenticando con Angelthump...');
+            try {
+                // 1. Evitamos enviar frases de la interfaz ("Sin Contraseña") a Angelthump como si fueran claves
+                const isValidPass = streamPassword && streamPassword !== t.sin_pass && !streamPassword.includes('••••') && !streamPassword.includes('❌');
+                
+                // 2. Solo inyectamos la Cookie de Patreon si el interruptor Premium está encendido
+                const sidParam = (streamSid && usePatreon) ? `&sid=${streamSid}` : '';
+                const passParam = isValidPass ? `&password=${encodeURIComponent(streamPassword)}` : '';
+                const patreonParam = `&patreon=${usePatreon}`;
+
+                const res = await fetch(`/.netlify/functions/angelthump?channel=${channel}${sidParam}${passParam}${patreonParam}`);
+                if (!res.ok) throw new Error("Fallo al contactar con el proxy de Netlify");
+                const data = await res.json();
+                
+                // 3. Traducimos el error booleano ("true") a un error humano
+                if (!data.token) {
+                    let errorMsg = "Acceso denegado. Contraseña incorrecta o suscripción caducada.";
+                    if (typeof data.error === 'string') errorMsg = data.error;
+                    else if (data.message) errorMsg = data.message;
+                    throw new Error(errorMsg);
+                }
+
+                setStatus('Cargando Stream Nativo...');
+                const m3u8Url = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
+
+                if (!window.Hls) {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1';
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.head.appendChild(script);
+                    });
+                }
+
+                if (window.Hls.isSupported()) {
+                    hls = new window.Hls();
+                    hls.loadSource(m3u8Url);
+                    hls.attachMedia(videoRef.current);
+                    hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+                        setStatus('');
+                        videoRef.current.play().catch(() => console.log("Autoplay bloqueado por el navegador"));
+                    });
+                    hls.on(window.Hls.Events.ERROR, (event, data) => {
+                        if (data.fatal) {
+                            switch (data.type) {
+                                case window.Hls.ErrorTypes.NETWORK_ERROR:
+                                    hls.startLoad();
+                                    break;
+                                case window.Hls.ErrorTypes.MEDIA_ERROR:
+                                    hls.recoverMediaError();
+                                    break;
+                                default:
+                                    setError('Error de red al cargar el vídeo. Refresca la página.');
+                                    setStatus('');
+                                    break;
+                            }
+                        }
+                    });
+                } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+                    videoRef.current.src = m3u8Url;
+                    videoRef.current.addEventListener('loadedmetadata', () => {
+                        setStatus('');
+                        videoRef.current.play().catch(() => {});
+                    });
+                }
+            } catch (err) {
+                setError(err.message);
+                setStatus('');
+            }
+        };
+
+        initPlayer();
+
+        return () => {
+            if (hls) hls.destroy();
+        };
+    }, [streamSid, streamPassword, channel, usePatreon]);
+
+    return (
+        <div className="w-full h-full bg-black relative flex items-center justify-center">
+            {status && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-10 flex-col gap-4">
+                    <div className="w-10 h-10 border-4 border-[#e5a00d] border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-[#e5a00d] font-bold text-sm tracking-widest uppercase text-center px-4">{status}</span>
+                </div>
+            )}
+            {error && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/95 z-20 flex-col gap-3 p-6 text-center">
+                    <AlertTriangle size={48} className="text-red-500" />
+                    <span className="text-red-500 font-bold text-lg">Error del Reproductor</span>
+                    <span className="text-gray-400 text-sm max-w-md">{error}</span>
+                </div>
+            )}
+            <video ref={videoRef} className="w-full h-full outline-none" controls autoPlay playsInline />
+        </div>
+    );
 };
 
 // --- UTILIDADES ---
@@ -94,7 +367,7 @@ const LazyImage = ({ src, alt, className, eager = false }) => {
 };
 
 // --- COMPONENTE FILA DE PLEX INTELIGENTE ---
-const MovieRow = ({ title, items, onSelect, onCategoryClick, onTitleClick, icon, isModal = false, eager = false }) => {
+const MovieRow = ({ title, items, onSelect, onCategoryClick, onTitleClick, icon, isModal = false, eager = false, t }) => {
   const rowRef = useRef(null);
   const containerRef = useRef(null);
   const [isVisible, setIsVisible] = useState(eager); 
@@ -218,7 +491,7 @@ const MovieRow = ({ title, items, onSelect, onCategoryClick, onTitleClick, icon,
                 </div>
                 <h3 className={`mt-2 md:mt-3 ${isModal ? 'text-[11px] md:text-xs' : 'text-xs md:text-sm'} font-semibold text-gray-200 line-clamp-2 leading-normal pb-1 pr-1 group-hover:text-[#e5a00d] transition-colors`}>{item.displayTitle || item.title}</h3>
                 {!item.isSaga && <div className="text-[10px] md:text-xs text-gray-500 font-medium">{item.year}</div>}
-                {item.isSaga && <div className="text-[10px] md:text-xs text-[#e5a00d] font-medium tracking-wide">COLECCIÓN</div>}
+                {item.isSaga && <div className="text-[10px] md:text-xs text-[#e5a00d] font-medium tracking-wide">{t?.coleccion_oficial || 'COLECCIÓN'}</div>}
               </div>
             ))}
 
@@ -231,7 +504,7 @@ const MovieRow = ({ title, items, onSelect, onCategoryClick, onTitleClick, icon,
                    <div className="p-3 md:p-4 rounded-full bg-black/40 group-hover:scale-110 transition-transform">
                      <Grid size={28} className="md:w-8 md:h-8" />
                    </div>
-                   <span className="font-bold text-xs md:text-sm text-center px-2">Ver todos ({items.length})</span>
+                   <span className="font-bold text-xs md:text-sm text-center px-2">{t?.ver_todos || 'Ver todos'} ({items.length})</span>
                 </div>
               </div>
             )}
@@ -256,7 +529,8 @@ const getInitialURLParams = () => {
         q: params.get('q') || '',
         v: params.get('v') || null,
         cat: params.get('cat') || null,
-        code: params.get('code') || null
+        code: params.get('code') || null,
+        refresh: params.get('refresh') === 'true'
     };
 };
 
@@ -265,34 +539,52 @@ let isFetchingDiscord = false;
 export default function App() {
   const initParams = useMemo(getInitialURLParams, []);
 
+  // ESTADOS DEL IDIOMA
+  const [appLang, setAppLang] = useState(localStorage.getItem('elpepestreams_lang') || 'es');
+  const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
+  const langMenuRef = useRef(null);
+  const t = UI_TRANSLATIONS[appLang] || UI_TRANSLATIONS['es'];
+
+  // Clicar fuera para cerrar el menú de idiomas
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+        if (langMenuRef.current && !langMenuRef.current.contains(event.target)) {
+            setIsLangMenuOpen(false);
+        }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // ESTADOS DE LA BASE DE DATOS
   const [items, setItems] = useState([]);
   const [sagas, setSagas] = useState([]);
   
-  // ESTADOS DE NAVEGACIÓN (Inicializados con los parámetros de la URL)
+  // ESTADOS DE NAVEGACIÓN
   const [activeTab, setActiveTab] = useState(initParams.tab); 
   const [searchQuery, setSearchQuery] = useState(initParams.q);
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
   
-  // ESTADOS DE CARGA (¡Lazy Loading!)
+  // ESTADOS DE CARGA
   const [dataFetched, setDataFetched] = useState(false);
   const [loading, setLoading] = useState(initParams.tab === 'inicio' || initParams.tab === 'pelis');
   const [error, setError] = useState(null);
   const [heroItem, setHeroItem] = useState(null);
+  const hasFetchedRef = useRef(false);
   
-  // REFERENCIAS PARA RECUPERAR ESTADO PROFUNDO (Deep Links) DESPUÉS DEL FETCH
   const initialVRef = useRef(initParams.v);
   const initialCatRef = useRef(initParams.cat);
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [viewMode, setViewMode] = useState('grid'); 
 
+  // ESTADOS DE REPRODUCTOR
   const [streamPassword, setStreamPassword] = useState("••••••••••••");
   const [streamSid, setStreamSid] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [copiedPass, setCopiedPass] = useState(false);
+  const [usePatreon, setUsePatreon] = useState(false); // <-- NUEVO: Toggle de Servidor
   
   const [visibleCount, setVisibleCount] = useState(100);
   const [sortBy, setSortBy] = useState('default');
@@ -316,15 +608,27 @@ export default function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // --- CAMBIO DE IDIOMA ---
+  useEffect(() => {
+     localStorage.setItem('elpepestreams_lang', appLang);
+     setSelectedCategory(null); // Cerramos cualquier categoría abierta para forzar el refresco de textos en el menú principal
+     if (hasFetchedRef.current && (activeTab === 'inicio' || activeTab === 'pelis')) {
+        setLoading(true);
+        fetchContent(appLang);
+     }
+  }, [appLang]);
+
   // --- SINCRONIZADOR DE URL ---
-  // Mantiene la barra de direcciones perfectamente sincronizada con la vista actual sin recargar la web.
   useEffect(() => {
     const url = new URL(window.location);
     let changed = false;
 
-    // Limpiamos el token the discord para no ensuciar la URL si existe
     if (url.searchParams.has('code')) {
         url.searchParams.delete('code');
+        changed = true;
+    }
+    if (url.searchParams.has('refresh')) {
+        url.searchParams.delete('refresh');
         changed = true;
     }
 
@@ -367,13 +671,17 @@ export default function App() {
     const savedSid = sessionStorage.getItem('stream_sid');
     const authTime = sessionStorage.getItem('stream_auth_time');
 
-    // Expirar la caché después de 12 horas (1000 * 60 * 60 * 12 ms)
     const CACHE_LIFETIME = 12 * 60 * 60 * 1000;
     const isCacheValid = authTime && (Date.now() - parseInt(authTime) < CACHE_LIFETIME);
 
     if (savedPassword && isCacheValid) {
         setStreamPassword(savedPassword);
-        if (savedSid) setStreamSid(savedSid);
+        if (savedSid) {
+            setStreamSid(savedSid);
+            setUsePatreon(true); // Si entra con SID, activamos Patreon por defecto
+        } else {
+            setUsePatreon(false);
+        }
     } else {
         sessionStorage.removeItem('stream_password');
         sessionStorage.removeItem('stream_sid');
@@ -387,7 +695,7 @@ export default function App() {
         isFetchingDiscord = true;
 
         setIsVerifying(true);
-        setStreamPassword("Verificando...");
+        setStreamPassword(t.verificando);
         
         fetch(`/.netlify/functions/verificar?code=${code}`)
             .then(async res => {
@@ -402,14 +710,12 @@ export default function App() {
                     if (!data.password || data.password.trim() === "") {
                         setStreamPassword("❌ Activa 'Message Content Intent' en el Bot");
                     } else {
-                        // Limpiamos formato markdown oculto de Discord (asteriscos y código) PERO MANTENEMOS los guiones bajos (_)
                         let cleanText = data.password.replace(/[*`]/g, '').trim();
                         cleanText = cleanText.replace(/^['"]|['"]$/g, '').trim();
                         
                         let finalPass = "";
                         let finalSid = null;
 
-                        // Regex ultra-robusto: Captura todo tras "Contraseña:" hasta llegar a "Cookie:" o el final.
                         const passRegex = /Contrase[ñn]a\s*:\s*(.*?)(?=\s*Cookie\s*:|$)/i;
                         const cookieRegex = /Cookie\s*:\s*(.*)/i;
 
@@ -419,7 +725,6 @@ export default function App() {
                         if (pMatch) finalPass = pMatch[1].trim().replace(/^['"]|['"]$/g, '');
                         if (cMatch) finalSid = cMatch[1].trim().replace(/^['"]|['"]$/g, '');
 
-                        // Sistema de rescate: si las regex no encontraron las etiquetas, busca el separador '|' o usa el texto completo
                         if (!finalPass && !cMatch) {
                             if (cleanText.includes('|')) {
                                 const parts = cleanText.split('|');
@@ -430,16 +735,18 @@ export default function App() {
                             }
                         }
 
-                        setStreamPassword(finalPass || "Sin Contraseña");
-                        sessionStorage.setItem('stream_password', finalPass || "Sin Contraseña");
+                        setStreamPassword(finalPass || t.sin_pass);
+                        sessionStorage.setItem('stream_password', finalPass || t.sin_pass);
                         sessionStorage.setItem('stream_auth_time', Date.now().toString());
                         
                         if (finalSid) {
                             setStreamSid(finalSid);
                             sessionStorage.setItem('stream_sid', finalSid);
+                            setUsePatreon(true);
                         } else {
                             setStreamSid(null);
                             sessionStorage.removeItem('stream_sid');
+                            setUsePatreon(false);
                         }
                     }
                 } else {
@@ -455,9 +762,8 @@ export default function App() {
                 isFetchingDiscord = false;
             });
     }
-  }, [initParams.code]);
+  }, [initParams.code, t.verificando, t.sin_pass]);
 
-  // NUEVO: Verificar si la caché expiró silenciosamente mientras navegabas por otras pestañas
   useEffect(() => {
       if (activeTab === 'directos' && !isVerifying) {
           const authTime = sessionStorage.getItem('stream_auth_time');
@@ -468,55 +774,13 @@ export default function App() {
               sessionStorage.removeItem('stream_auth_time');
               setStreamPassword("••••••••••••");
               setStreamSid(null);
+              setUsePatreon(false);
           }
       }
   }, [activeTab, isVerifying]);
 
-  // NUEVO: Inyectar la cookie en el dominio local por comodidad para las extensiones de Firefox/Chrome
-  useEffect(() => {
-      if (streamSid) {
-          // Simplificamos la cookie local para que Firefox Incógnito no la bloquee por parecer de rastreo cruzado
-          document.cookie = `angelthump.sid=${streamSid}; path=/; max-age=31536000`;
-      }
-  }, [streamSid]);
-
-  const handleCopyCookie = () => {
-    if (!streamSid) return;
-    
-    // Corregido: Usar Math.floor() para asegurar un número entero en la fecha,
-    // o las extensiones de cookies rechazarán la importación silenciosamente.
-    const cookieJson = [
-        {
-            "domain": ".angelthump.com",
-            "expirationDate": Math.floor(Date.now() / 1000) + 31536000,
-            "hostOnly": false,
-            "httpOnly": true,
-            "name": "angelthump.sid",
-            "path": "/",
-            "sameSite": "no_restriction",
-            "secure": true,
-            "session": false,
-            "value": streamSid
-        }
-    ];
-
-    const textToCopy = JSON.stringify(cookieJson, null, 4);
-    const textArea = document.createElement("textarea");
-    textArea.value = textToCopy;
-    document.body.appendChild(textArea);
-    textArea.select();
-    try {
-        document.execCommand('copy');
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000); 
-    } catch (err) { 
-        console.error('Error al copiar', err); 
-    }
-    document.body.removeChild(textArea);
-  };
-
   const handleCopyPass = () => {
-      if (!streamPassword || streamPassword.includes('❌') || streamPassword.includes('••••') || streamPassword.includes('Verificando')) return;
+      if (!streamPassword || streamPassword.includes('❌') || streamPassword.includes('••••') || streamPassword.includes('Verificando') || streamPassword.includes('Verificant') || streamPassword.includes('Egiaztatzen')) return;
       const textArea = document.createElement("textarea");
       textArea.value = streamPassword;
       document.body.appendChild(textArea);
@@ -531,40 +795,68 @@ export default function App() {
       document.body.removeChild(textArea);
   };
 
-  const translateLangs = (str) => {
+  const translateLangs = (str, targetLang) => {
     if (!str || str === 'N/A') return 'N/A';
     return str.split(/[,/-]/).map(l => {
       const clean = l.trim().toLowerCase();
-      return LANGUAGE_MAP[clean] || l.trim();
+      const baseEs = LANGUAGE_MAP[clean] || l.trim();
+      return LANG_TRANSLATIONS[targetLang]?.[baseEs] || baseEs;
     }).join(', ');
   };
 
-  const fetchTMDB = async (title, year) => {
+  const fetchTMDB = async (title, year, langToFetch) => {
     try {
       let cleanTitle = title.replace(/\[.*?\]/g, ' ').replace(/\(.*?\)/g, ' ').replace(/[\[\]\(\)]/g, '').replace(/!/g, '').replace(/\s1$/, '').trim();
       const query = encodeURIComponent(cleanTitle);
       const cleanYear = year ? year.toString().match(/\d{4}/)?.[0] : '';
-      let res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}&language=es-ES&primary_release_year=${cleanYear || ''}`);
-      let data = await res.json();
+      
+      const tmdbLangMap = { 'es': 'es-ES', 'ca': 'ca-ES', 'gl': 'gl-ES', 'eu': 'eu-ES' };
+      const apiLang = tmdbLangMap[langToFetch] || 'es-ES';
+
+      let searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}&language=es-ES&primary_release_year=${cleanYear || ''}`);
+      let data = await searchRes.json();
+      
       if ((!data.results || data.results.length === 0) && cleanYear) {
-         res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}&language=es-ES`);
-         data = await res.json();
+         searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}&language=es-ES`);
+         data = await searchRes.json();
       }
       if ((!data.results || data.results.length === 0) && cleanTitle.match(/[:\-]/)) {
          const shortTitle = cleanTitle.split(/[:\-]/)[0].trim();
-         res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(shortTitle)}&language=es-ES&primary_release_year=${cleanYear || ''}`);
-         data = await res.json();
+         searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(shortTitle)}&language=es-ES&primary_release_year=${cleanYear || ''}`);
+         data = await searchRes.json();
       }
+      
       if (data.results?.[0]) {
         const tmdbId = data.results[0].id;
-        const detailRes = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_API_KEY}&language=es-ES`);
-        const movie = await detailRes.json();
+        
+        let detailRes = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_API_KEY}&language=${apiLang}`);
+        let movie = await detailRes.json();
+
+        let fallbackRes = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_API_KEY}&language=es-ES`);
+        let movieEs = await fallbackRes.json();
+
+        if (!movie.overview && langToFetch !== 'es') {
+             movie.overview = movieEs.overview;
+             movie.title = movieEs.title;
+             movie.poster_path = movieEs.poster_path;
+             movie.backdrop_path = movieEs.backdrop_path;
+        } else {
+             if (!movie.poster_path) movie.poster_path = movieEs.poster_path;
+             if (!movie.backdrop_path) movie.backdrop_path = movieEs.backdrop_path;
+        }
+
+        const rawGenres = movie.genres?.length > 0 ? movie.genres : movieEs.genres;
+        const translatedGenres = rawGenres?.map(g => {
+            return GENRE_TRANSLATIONS[g.name]?.[langToFetch] || GENRE_TRANSLATIONS[g.name]?.['es'] || g.name;
+        }) || [];
+        
         return {
+          tmdbTitle: movie.title, 
           overview: movie.overview,
           poster: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
           backdrop: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
           year: movie.release_date?.split('-')[0],
-          genres: movie.genres?.map(g => g.name) || [],
+          genres: translatedGenres,
           collection: movie.belongs_to_collection ? { id: movie.belongs_to_collection.id, name: movie.belongs_to_collection.name, poster: movie.belongs_to_collection.poster_path ? `https://image.tmdb.org/t/p/w500${movie.belongs_to_collection.poster_path}` : null, backdrop: movie.belongs_to_collection.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.belongs_to_collection.backdrop_path}` : null } : null,
           rating: movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'
         };
@@ -573,12 +865,31 @@ export default function App() {
     return null;
   };
 
-  const fetchContent = async () => {
+  const fetchContent = async (currentLang) => {
     try {
+      const forceRefresh = initParams.refresh;
+
+      const cacheKeyName = `plex_library_full_cache_${currentLang}`;
+      const cachedRaw = localStorage.getItem(cacheKeyName);
+      let existingItemsMap = new Map();
+      if (cachedRaw && !forceRefresh) {
+          try {
+              const parsed = JSON.parse(cachedRaw);
+              const isExpired = !parsed.timestamp || (Date.now() - parsed.timestamp > CACHE_TTL);
+              if (parsed.version === CACHE_VERSION && !isExpired && parsed.items) {
+                  parsed.items.forEach(i => existingItemsMap.set(`${i.title.toLowerCase()}_${i.year}`, i));
+              }
+          } catch(e) {}
+      }
+
       const response = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`);
       const csvText = await response.text();
       const parsedData = parseCSV(csvText);
-      const headers = parsedData[0].map(h => (h || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+      
+      const headerRowIdx = parsedData.findIndex(row => row.some(c => typeof c === 'string' && (c.toLowerCase().includes('título') || c.toLowerCase().includes('title'))));
+      const validHeaderIdx = headerRowIdx !== -1 ? headerRowIdx : 0;
+      
+      const headers = parsedData[validHeaderIdx].map(h => (h || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
       const getIdx = (keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
       
       const idxTitle = getIdx(['titulo', 'title']);
@@ -586,32 +897,66 @@ export default function App() {
       const idxLang = getIdx(['idioma', 'lenguaje']);
       const idxQual = getIdx(['calidad']);
       const idxGen  = getIdx(['genero', 'género']);
-      const idxLink = 8; 
+      
+      let idxLink = getIdx(['lnkf']);
+      if (idxLink === -1) {
+          idxLink = getIdx(['link final', 'url final', 'descarga']);
+      }
 
-      const rawRows = parsedData.slice(1).filter(r => r[idxTitle]);
-      const chunkSize = 15;
+      const rawRows = parsedData.slice(validHeaderIdx + 1).filter(r => r[idxTitle]);
+      const chunkSize = 25; 
       const enriched = [];
+      const translatedNoDesc = UI_TRANSLATIONS[currentLang].sin_descripcion;
       
       for (let i = 0; i < rawRows.length; i += chunkSize) {
         const chunk = rawRows.slice(i, i + chunkSize);
         const chunkEnriched = await Promise.all(chunk.map(async (row, idx) => {
-          const tmdb = await fetchTMDB(row[idxTitle], row[idxYear]);
-          let finalLink = row.length > idxLink ? row[idxLink].trim() : '#';
-          if (!finalLink || finalLink.toLowerCase() === 'link') finalLink = '#';
+          const title = row[idxTitle];
+          const year = row[idxYear] || '?';
+          const cacheKey = `${title.toLowerCase()}_${year}`;
+          
+          let rawLink = '';
+          if (idxLink !== -1 && row[idxLink] && typeof row[idxLink] === 'string' && row[idxLink].trim().includes('http')) {
+              rawLink = row[idxLink]; 
+          } else {
+              const cellHttp = [...row].reverse().find(c => c && typeof c === 'string' && (c.trim().includes('http') || c.trim().includes('www.')));
+              if (cellHttp) rawLink = cellHttp;
+          }
+          
+          let finalLink = rawLink.trim();
+          if (!finalLink || finalLink.toLowerCase() === 'link' || finalLink.toLowerCase() === 'lnkf') finalLink = '#';
           else if (finalLink !== '#' && !finalLink.startsWith('http')) finalLink = 'https://' + finalLink;
 
+          const newQuality = formatVideoQuality(idxQual !== -1 ? row[idxQual] : '');
+          const newLang = idxLang !== -1 ? translateLangs(row[idxLang], currentLang) : 'N/A';
+          const newGenresCsv = (idxGen !== -1 && row[idxGen]) ? [GENRE_TRANSLATIONS[row[idxGen]]?.[currentLang] || row[idxGen]] : [GENRE_TRANSLATIONS['Otros']?.[currentLang] || "Otros"];
+
+          if (existingItemsMap.has(cacheKey)) {
+              const cachedItem = existingItemsMap.get(cacheKey);
+              return {
+                  ...cachedItem,
+                  id: `item-${i + idx}`,
+                  videoQuality: newQuality,
+                  language: newLang,
+                  link: finalLink
+              };
+          }
+
+          const tmdb = await fetchTMDB(title, year, currentLang);
+          
           return {
             id: `item-${i + idx}`,
             isSaga: false,
-            title: row[idxTitle],
-            year: tmdb?.year || row[idxYear] || '?',
-            description: tmdb?.overview || "Sin descripción disponible.",
-            image: tmdb?.poster || `https://via.placeholder.com/500x750/1a1a1c/e5a00d?text=${encodeURIComponent(row[idxTitle])}`,
+            title: title, 
+            displayTitle: tmdb?.tmdbTitle || title, 
+            year: tmdb?.year || year,
+            description: tmdb?.overview || translatedNoDesc,
+            image: tmdb?.poster || `https://via.placeholder.com/500x750/1a1a1c/e5a00d?text=${encodeURIComponent(title)}`,
             backdrop: tmdb?.backdrop || tmdb?.poster,
-            videoQuality: formatVideoQuality(idxQual !== -1 ? row[idxQual] : ''),
-            language: idxLang !== -1 ? translateLangs(row[idxLang]) : 'N/A',
+            videoQuality: newQuality,
+            language: newLang,
             link: finalLink,
-            genres: tmdb?.genres?.length ? tmdb.genres : (idxGen !== -1 && row[idxGen] ? [row[idxGen]] : ["Otros"]),
+            genres: tmdb?.genres?.length ? tmdb.genres : newGenresCsv,
             collection: tmdb?.collection || null,
             rating: tmdb?.rating || 'N/A'
           };
@@ -646,16 +991,26 @@ export default function App() {
       setItems(enriched);
       setSagas(sagasArray);
       
-      if (enriched.length > 0) {
+      setHeroItem(prev => {
+          if (prev) {
+              const updatedHero = enriched.find(i => i.id === prev.id);
+              if (updatedHero) return updatedHero;
+          }
           const topMovies = enriched.filter(m => parseFloat(m.rating) > 7.0);
           const pool = topMovies.length > 0 ? topMovies : enriched;
-          setHeroItem(pool[Math.floor(Math.random() * pool.length)]);
-      }
+          return pool[Math.floor(Math.random() * pool.length)];
+      });
 
       setDataFetched(true);
       setLoading(false);
 
-      // RESTAURACIÓN DE DEEP LINKS TRAS LA DESCARGA
+      try {
+          localStorage.setItem(cacheKeyName, JSON.stringify({ version: CACHE_VERSION, timestamp: Date.now(), items: enriched, sagas: sagasArray }));
+      } catch (e) {
+          localStorage.removeItem(cacheKeyName); 
+          try { localStorage.setItem(cacheKeyName, JSON.stringify({ version: CACHE_VERSION, timestamp: Date.now(), items: enriched, sagas: sagasArray })); } catch(e2){}
+      }
+
       if (initialVRef.current) {
           const v = initialVRef.current;
           const foundSaga = sagasArray.find(s => s.id === v);
@@ -668,14 +1023,45 @@ export default function App() {
     } catch (err) { setError(err.message); setLoading(false); }
   };
 
-  // --- CARGA CONDICIONAL (Lazy Load de Pelis) ---
   useEffect(() => {
-    // Solo cargamos la base de datos si NO estamos en Directos/Series y todavía no se ha bajado.
-    if (!dataFetched && (activeTab === 'inicio' || activeTab === 'pelis')) {
-        setLoading(true);
-        fetchContent();
+    if (hasFetchedRef.current) return;
+    
+    if (activeTab === 'inicio' || activeTab === 'pelis') {
+        hasFetchedRef.current = true;
+
+        const forceRefresh = initParams.refresh;
+
+        const cachedRaw = localStorage.getItem(`plex_library_full_cache_${appLang}`);
+        if (cachedRaw && !forceRefresh) {
+            try {
+                const parsed = JSON.parse(cachedRaw);
+                const isExpired = !parsed.timestamp || (Date.now() - parsed.timestamp > CACHE_TTL);
+                if (parsed.version === CACHE_VERSION && !isExpired && parsed.items && parsed.items.length > 0) {
+                    setItems(parsed.items);
+                    setSagas(parsed.sagas || []);
+                    setDataFetched(true);
+                    setLoading(false);
+                    
+                    setHeroItem(prev => {
+                        if (prev) {
+                            const updatedHero = parsed.items.find(i => i.id === prev.id);
+                            if (updatedHero) return updatedHero;
+                        }
+                        const topMovies = parsed.items.filter(m => parseFloat(m.rating) > 7.0);
+                        const pool = topMovies.length > 0 ? topMovies : parsed.items;
+                        return pool[Math.floor(Math.random() * pool.length)];
+                    });
+                } else {
+                    setLoading(true);
+                }
+            } catch(e) { setLoading(true); }
+        } else {
+            setLoading(true);
+        }
+
+        fetchContent(appLang);
     }
-  }, [activeTab, dataFetched]);
+  }, [activeTab]);
 
   useEffect(() => {
      setVisibleCount(100);
@@ -706,19 +1092,19 @@ export default function App() {
     if (searchQuery || items.length === 0) return [];
     
     let cats = [];
-    cats.push({ title: 'Recomendados de hoy', items: shuffleArray(items).slice(0, 30), icon: <Star size={22}/> });
+    cats.push({ title: t.recomendados, items: shuffleArray(items).slice(0, 30), icon: <Star size={22}/> });
 
     const topRated = [...items].sort((a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0)).slice(0, 100);
-    cats.push({ title: 'Mejor Valoradas', items: topRated, icon: null });
+    cats.push({ title: t.mejor_valoradas, items: topRated, icon: null });
 
     const currentYear = new Date().getFullYear();
     const recentReleases = [...items].filter(i => parseInt(i.year) === currentYear || parseInt(i.year) === currentYear - 1).sort((a, b) => parseInt(b.year) - parseInt(a.year));
     if (recentReleases.length > 0) {
-        cats.push({ title: 'Últimos Lanzamientos', items: recentReleases, icon: <Film size={22}/> });
+        cats.push({ title: t.ultimos, items: recentReleases, icon: <Film size={22}/> });
     }
 
     if (sagas.length > 0) {
-        cats.push({ title: 'Sagas y Colecciones', items: shuffleArray(sagas), icon: <Layers size={22}/> });
+        cats.push({ title: t.sagas, items: shuffleArray(sagas), icon: <Layers size={22}/> });
     }
 
     const allGenres = [...new Set(items.flatMap(i => i.genres))].sort();
@@ -731,9 +1117,8 @@ export default function App() {
     genreCats = shuffleArray(genreCats);
 
     return [...cats, ...genreCats];
-  }, [items, sagas, searchQuery]);
+  }, [items, sagas, searchQuery, t]);
 
-  // RESTAURACIÓN DE CATEGORÍAS PROFUNDAS TRAS SU CÁLCULO
   useEffect(() => {
       if (categories.length > 0 && initialCatRef.current) {
           const foundCat = categories.find(c => c.title === initialCatRef.current);
@@ -743,7 +1128,11 @@ export default function App() {
   }, [categories]);
 
   const rawDisplayItems = searchQuery 
-    ? items.filter(i => i.title.toLowerCase().includes(searchQuery.toLowerCase()) || i.description.toLowerCase().includes(searchQuery.toLowerCase()))
+    ? items.filter(i => 
+        i.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        (i.displayTitle && i.displayTitle.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        i.description.toLowerCase().includes(searchQuery.toLowerCase())
+      )
     : (selectedCategory ? selectedCategory.items : []);
 
   const availableGenres = useMemo(() => {
@@ -810,7 +1199,7 @@ export default function App() {
           {arrayToRender.map(item => (
             <div key={item.id} className="group cursor-pointer flex gap-4 md:gap-6 bg-neutral-900/30 hover:bg-neutral-800/60 border border-white/5 rounded-xl p-3 md:p-4 transition-all" onClick={() => setSelectedItem(item)}>
                <div className="w-20 md:w-28 shrink-0 aspect-[2/3] rounded-lg overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
-                 <LazyImage src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                 <LazyImage src={item.image} alt={item.displayTitle || item.title} className="w-full h-full object-cover" />
                </div>
                <div className="flex flex-col justify-center flex-1">
                  <h4 className="font-bold text-sm md:text-xl text-white mb-1 md:mb-2 group-hover:text-[#e5a00d] transition-colors">{item.displayTitle || item.title}</h4>
@@ -823,7 +1212,7 @@ export default function App() {
                      <span className="hidden sm:inline">{item.genres.join(', ')}</span>
                    </div>
                  )}
-                 {item.isSaga && <div className="text-xs md:text-sm text-[#e5a00d] font-bold tracking-widest mb-2 uppercase">Colección</div>}
+                 {item.isSaga && <div className="text-xs md:text-sm text-[#e5a00d] font-bold tracking-widest mb-2 uppercase">{t.coleccion_oficial}</div>}
                  <p className="text-xs md:text-sm text-gray-500 line-clamp-2 md:line-clamp-3">{item.description}</p>
                </div>
             </div>
@@ -837,7 +1226,7 @@ export default function App() {
         {arrayToRender.map(item => (
           <div key={item.id} className="group cursor-pointer flex flex-col" onClick={() => setSelectedItem(item)}>
             <div className="aspect-[2/3] rounded-lg overflow-hidden border border-white/5 bg-neutral-900 group-hover:scale-105 transition-transform duration-300 shadow-xl">
-              <LazyImage src={item.image} alt={item.title} className="w-full h-full object-cover" />
+              <LazyImage src={item.image} alt={item.displayTitle || item.title} className="w-full h-full object-cover" />
             </div>
             <h4 className="mt-2 md:mt-3 font-bold text-[11px] md:text-sm line-clamp-2 leading-normal pb-1 pr-1 group-hover:text-[#e5a00d] transition-colors">{item.displayTitle || item.title}</h4>
           </div>
@@ -860,7 +1249,7 @@ export default function App() {
               onChange={e => { if (e.target.value !== 'default' && !filterGenres.includes(e.target.value)) setFilterGenres([...filterGenres, e.target.value]); }} 
               className="appearance-none bg-neutral-900 border border-white/20 text-xs md:text-sm rounded-lg pl-8 pr-3 py-2 md:py-2.5 text-white outline-none focus:border-[#e5a00d] w-full cursor-pointer truncate"
             >
-              <option value="default" disabled>+ Género</option>
+              <option value="default" disabled>{t.filtro_genero}</option>
               {availableGenres.filter(g => !filterGenres.includes(g)).map(g => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
@@ -872,7 +1261,7 @@ export default function App() {
               onChange={e => { if (e.target.value !== 'default' && !filterQualities.includes(e.target.value)) setFilterQualities([...filterQualities, e.target.value]); }} 
               className="appearance-none bg-neutral-900 border border-white/20 text-xs md:text-sm rounded-lg pl-8 pr-3 py-2 md:py-2.5 text-white outline-none focus:border-[#e5a00d] w-full cursor-pointer truncate"
             >
-              <option value="default" disabled>+ Calidad</option>
+              <option value="default" disabled>{t.filtro_calidad}</option>
               {availableQualities.filter(q => !filterQualities.includes(q)).map(q => <option key={q} value={q}>{q}</option>)}
             </select>
           </div>
@@ -884,7 +1273,7 @@ export default function App() {
               onChange={e => { if (e.target.value !== 'default' && !filterLanguages.includes(e.target.value)) setFilterLanguages([...filterLanguages, e.target.value]); }} 
               className="appearance-none bg-neutral-900 border border-white/20 text-xs md:text-sm rounded-lg pl-8 pr-3 py-2 md:py-2.5 text-white outline-none focus:border-[#e5a00d] w-full cursor-pointer truncate"
             >
-              <option value="default" disabled>+ Idioma</option>
+              <option value="default" disabled>{t.filtro_idioma}</option>
               {availableLanguages.filter(l => !filterLanguages.includes(l)).map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
@@ -896,7 +1285,7 @@ export default function App() {
               onChange={e => { if (e.target.value !== 'default' && !filterYears.includes(e.target.value)) setFilterYears([...filterYears, e.target.value]); }} 
               className="appearance-none bg-neutral-900 border border-white/20 text-xs md:text-sm rounded-lg pl-8 pr-3 py-2 md:py-2.5 text-white outline-none focus:border-[#e5a00d] w-full cursor-pointer truncate"
             >
-              <option value="default" disabled>+ Año</option>
+              <option value="default" disabled>{t.filtro_ano}</option>
               {availableYears.filter(y => !filterYears.includes(y)).map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
@@ -908,11 +1297,11 @@ export default function App() {
               onChange={e => setSortBy(e.target.value)} 
               className="appearance-none bg-neutral-900 border border-white/20 text-xs md:text-sm rounded-lg pl-8 pr-3 py-2 md:py-2.5 text-white outline-none focus:border-[#e5a00d] w-full cursor-pointer truncate"
             >
-              <option value="default">Orden por defecto</option>
-              <option value="az">Alfabético (A - Z)</option>
-              <option value="za">Alfabético (Z - A)</option>
-              <option value="rating">Mejor Valoradas</option>
-              <option value="year">Más Recientes</option>
+              <option value="default">{t.orden_defecto}</option>
+              <option value="az">{t.orden_az}</option>
+              <option value="za">{t.orden_za}</option>
+              <option value="rating">{t.orden_rating}</option>
+              <option value="year">{t.orden_year}</option>
             </select>
           </div>
         </div>
@@ -924,15 +1313,14 @@ export default function App() {
             {filterQualities.map(q => <span key={q} onClick={() => setFilterQualities(filterQualities.filter(x => x !== q))} className="bg-[#e5a00d]/10 text-[#e5a00d] border border-[#e5a00d]/30 px-3 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 cursor-pointer hover:bg-red-500/20 hover:text-red-500 hover:border-red-500/30 transition-colors">{q} <X size={12} /></span>)}
             {filterLanguages.map(l => <span key={l} onClick={() => setFilterLanguages(filterLanguages.filter(x => x !== l))} className="bg-[#e5a00d]/10 text-[#e5a00d] border border-[#e5a00d]/30 px-3 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 cursor-pointer hover:bg-red-500/20 hover:text-red-500 hover:border-red-500/30 transition-colors">{l} <X size={12} /></span>)}
             {filterYears.map(y => <span key={y} onClick={() => setFilterYears(filterYears.filter(x => x !== y))} className="bg-[#e5a00d]/10 text-[#e5a00d] border border-[#e5a00d]/30 px-3 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 cursor-pointer hover:bg-red-500/20 hover:text-red-500 hover:border-red-500/30 transition-colors">{y} <X size={12} /></span>)}
-            <button onClick={() => { setFilterGenres([]); setFilterQualities([]); setFilterLanguages([]); setFilterYears([]); }} className="text-[11px] text-gray-400 hover:text-white underline ml-2 transition-colors">Limpiar todos</button>
+            <button onClick={() => { setFilterGenres([]); setFilterQualities([]); setFilterLanguages([]); setFilterYears([]); }} className="text-[11px] text-gray-400 hover:text-white underline ml-2 transition-colors">{t.limpiar}</button>
           </div>
         )}
       </div>
     );
   };
 
-  // Variable para saber si ya tenemos una contraseña válida cargada y cambiar el diseño del botón
-  const isLogged = streamPassword && !streamPassword.includes('❌') && !streamPassword.includes('••••');
+  const isLogged = streamPassword && !streamPassword.includes('❌') && !streamPassword.includes('••••') && !streamPassword.includes('Verificando') && !streamPassword.includes('Verificant') && !streamPassword.includes('Egiaztatzen');
 
   return (
     <div className={`bg-[#0f0f0f] text-gray-200 font-sans selection:bg-[#e5a00d] selection:text-black overflow-x-hidden ${activeTab === 'directos' ? 'min-h-screen pb-6' : 'min-h-screen pb-20'}`}>
@@ -953,60 +1341,107 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-3 md:gap-6 text-[11px] sm:text-xs md:text-sm font-bold tracking-wide overflow-x-auto w-full sm:w-auto scrollbar-hide justify-center sm:justify-start pb-1 sm:pb-0">
-               <button onClick={() => {setActiveTab('inicio'); setSearchQuery(""); setSelectedCategory(null);}} className={`flex items-center gap-1.5 transition-colors whitespace-nowrap px-2 py-1 rounded-md ${activeTab === 'inicio' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}><Home size={16} className="hidden sm:block"/> INICIO</button>
-               <button onClick={() => {setActiveTab('pelis'); setSearchQuery(""); setSelectedCategory(null);}} className={`flex items-center gap-1.5 transition-colors whitespace-nowrap px-2 py-1 rounded-md ${activeTab === 'pelis' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}><Film size={16} className="hidden sm:block"/> PELIS</button>
-               <button onClick={() => {setActiveTab('series'); setSearchQuery(""); setSelectedCategory(null);}} className={`flex items-center gap-1.5 transition-colors whitespace-nowrap px-2 py-1 rounded-md ${activeTab === 'series' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}><Tv size={16} className="hidden sm:block"/> SERIES</button>
-               <button onClick={() => {setActiveTab('directos'); setSearchQuery(""); setSelectedCategory(null);}} className={`flex items-center gap-1.5 transition-colors whitespace-nowrap px-2 py-1 rounded-md ${activeTab === 'directos' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}><Radio size={16} className="hidden sm:block"/> DIRECTOS</button>
+               <button onClick={() => {setActiveTab('inicio'); setSearchQuery(""); setSelectedCategory(null);}} className={`flex items-center gap-1.5 transition-colors whitespace-nowrap px-2 py-1 rounded-md ${activeTab === 'inicio' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}><Home size={16} className="hidden sm:block"/> {t.inicio}</button>
+               <button onClick={() => {setActiveTab('pelis'); setSearchQuery(""); setSelectedCategory(null);}} className={`flex items-center gap-1.5 transition-colors whitespace-nowrap px-2 py-1 rounded-md ${activeTab === 'pelis' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}><Film size={16} className="hidden sm:block"/> {t.pelis}</button>
+               <button onClick={() => {setActiveTab('series'); setSearchQuery(""); setSelectedCategory(null);}} className={`flex items-center gap-1.5 transition-colors whitespace-nowrap px-2 py-1 rounded-md ${activeTab === 'series' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}><Tv size={16} className="hidden sm:block"/> {t.series}</button>
+               <button onClick={() => {setActiveTab('directos'); setSearchQuery(""); setSelectedCategory(null);}} className={`flex items-center gap-1.5 transition-colors whitespace-nowrap px-2 py-1 rounded-md ${activeTab === 'directos' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}><Radio size={16} className="hidden sm:block"/> {t.directos}</button>
             </div>
           </div>
 
-          {(activeTab === 'inicio' || activeTab === 'pelis') && (
-            <div className="relative group w-full lg:max-w-md shrink-0">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#e5a00d] transition-colors" size={16} />
-              <input type="text" placeholder="Buscar películas..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="bg-neutral-900/60 border border-white/10 rounded-full py-2.5 pl-10 md:pl-12 pr-4 md:pr-6 w-full focus:outline-none focus:border-[#e5a00d] focus:bg-black transition-all text-xs md:text-sm backdrop-blur-sm" />
-            </div>
-          )}
+          <div className="flex items-center gap-4 w-full lg:w-auto justify-end">
+              {(activeTab === 'inicio' || activeTab === 'pelis') && (
+                <div className="relative group w-full lg:w-64 shrink-0">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#e5a00d] transition-colors" size={16} />
+                  <input type="text" placeholder={t.buscar} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="bg-neutral-900/60 border border-white/10 rounded-full py-2.5 pl-10 md:pl-12 pr-4 md:pr-6 w-full focus:outline-none focus:border-[#e5a00d] focus:bg-black transition-all text-xs md:text-sm backdrop-blur-sm" />
+                </div>
+              )}
+              
+              <div className="relative group shrink-0 hidden sm:block" ref={langMenuRef}>
+                 <div 
+                    className={`bg-white/5 hover:bg-white/10 p-2.5 rounded-full border border-white/10 cursor-pointer transition-all flex items-center justify-center ${isLangMenuOpen ? 'bg-white/10 ring-1 ring-white/20' : ''}`}
+                    onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+                    title="Cambiar idioma"
+                 >
+                    <Globe size={18} className="text-gray-300 group-hover:text-white transition-colors" />
+                 </div>
+                 
+                 {isLangMenuOpen && (
+                    <div className="absolute right-0 mt-3 w-40 bg-[#141414] border border-white/10 rounded-xl shadow-2xl py-1.5 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                       {[
+                          { code: 'es', label: 'Castellano' },
+                          { code: 'ca', label: 'Català / Valencià' },
+                          { code: 'gl', label: 'Galego' },
+                          { code: 'eu', label: 'Euskara' }
+                       ].map(lang => (
+                          <button
+                             key={lang.code}
+                             onClick={() => { setAppLang(lang.code); setIsLangMenuOpen(false); }}
+                             className={`w-full text-left px-4 py-2.5 text-xs font-semibold transition-all flex items-center gap-2 ${appLang === lang.code ? 'text-[#e5a00d] bg-[#e5a00d]/10' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                          >
+                             {appLang === lang.code && <span className="w-1.5 h-1.5 rounded-full bg-[#e5a00d] shrink-0"></span>}
+                             <span className={appLang === lang.code ? '' : 'ml-3'}>{lang.label}</span>
+                          </button>
+                       ))}
+                    </div>
+                 )}
+              </div>
+          </div>
         </div>
       </nav>
 
       {loading ? (
         <div className="h-screen flex flex-col items-center justify-center gap-5">
           <div className="w-12 h-12 border-4 border-[#e5a00d] border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-500 font-medium animate-pulse">Sincronizando con tu biblioteca...</p>
+          <p className="text-gray-500 font-medium animate-pulse">{t.sinc_biblio}</p>
         </div>
       ) : error ? (
         <div className="h-screen flex flex-col items-center justify-center text-center p-10">
           <AlertTriangle size={60} className="text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Vaya, algo ha fallado</h2>
+          <h2 className="text-2xl font-bold mb-2">{t.error_fallo}</h2>
           <p className="text-gray-400">{error}</p>
         </div>
       ) : (
         <>
           {activeTab === 'directos' && (
             <div className="pt-24 md:pt-[5.5rem] px-4 md:px-12 flex flex-col lg:flex-row gap-4 md:gap-6 h-[calc(100vh-1rem)] pb-4 md:pb-6 lg:pb-8 animate-in fade-in duration-500 w-full">
-                <div className="flex-1 bg-black rounded-xl overflow-hidden border border-white/10 relative shadow-2xl min-h-[40vh] lg:min-h-0 lg:h-full flex items-center justify-center">
+                
+                {/* REPRODUCTOR INTELIGENTE: Si está logueado renderiza el nativo. Si no, renderiza el de Angelthump para pedirle el inicio de sesión. */}
+                <div className="flex-1 bg-black rounded-xl overflow-hidden border border-white/10 relative shadow-2xl min-h-[40vh] lg:min-h-0 lg:h-full flex items-center justify-center group/player">
                     <div className="absolute inset-0 w-full h-full">
-                        {/* AÑADIDO: storage-access y clipboard-write para que el reproductor no esté capado en el iFrame */}
-                        <iframe title="Player" allow="autoplay; fullscreen; storage-access; clipboard-write" allowtransparency="true" allowFullScreen src="https://player.angelthump.com/?channel=elpintaunas" seamless="seamless" style={{ border: 0, margin: 0, overflow: 'hidden', height: '100%', width: '100%' }}></iframe>
+                        {isLogged ? (
+                            <NativeStreamPlayer streamSid={streamSid} streamPassword={streamPassword} channel={STREAM_CHANNEL} usePatreon={usePatreon} t={t} />
+                        ) : (
+                            <iframe title="Player" allow="autoplay; fullscreen" src={`https://player.angelthump.com/?channel=${STREAM_CHANNEL}`} seamless="seamless" style={{ border: 0, margin: 0, overflow: 'hidden', height: '100%', width: '100%' }}></iframe>
+                        )}
                     </div>
+                    
+                    {/* Indicador visual de servidor en la esquina del reproductor */}
+                    {isLogged && (
+                        <div className="absolute top-4 left-4 z-30 pointer-events-none opacity-0 group-hover/player:opacity-100 transition-opacity">
+                            <span className="bg-black/60 backdrop-blur-md border border-white/10 text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-2 uppercase tracking-widest shadow-lg">
+                                <Server size={12} className={usePatreon ? 'text-[#e5a00d]' : 'text-blue-400'} /> 
+                                {usePatreon ? t.serv_patreon : t.serv_normal}
+                            </span>
+                        </div>
+                    )}
                 </div>
                 
-                <div className="w-full lg:w-[350px] xl:w-[400px] bg-[#36393f] rounded-xl overflow-hidden border border-white/10 flex flex-col shadow-2xl shrink-0 h-auto lg:h-full">
+                <div className="w-full lg:w-[350px] xl:w-[400px] bg-[#36393f] rounded-xl overflow-hidden border border-white/10 flex flex-col shadow-2xl shrink-0 h-auto lg:h-full overflow-y-auto">
                     <div className="bg-[#202225] p-3 border-b border-black/20 flex justify-center items-center shrink-0">
                        <span className="font-bold text-white text-sm flex items-center gap-2">
-                           <Layers size={16} className="text-[#5865F2]" /> Acceso Premium
+                           <Layers size={16} className="text-[#5865F2]" /> {t.acceso_premium}
                        </span>
                     </div>
                     
-                    <div className="flex flex-col flex-1 p-4 md:p-5 justify-center items-center text-center">
+                    <div className="flex flex-col flex-1 p-4 md:p-5 justify-start items-center text-center">
                         <div className="bg-[#5865F2]/10 p-3 rounded-full mb-3 border border-[#5865F2]/30 shrink-0">
                             <svg className="w-8 h-8 text-[#5865F2]" fill="currentColor" viewBox="0 0 127.14 96.36">
                                 <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77.7,77.7,0,0,0,6.89,11.1,105.25,105.25,0,0,0,32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.56,65.3c-5.36,0-9.8-4.83-9.8-10.74s4.33-10.74,9.8-10.74,9.84,4.83,9.8,10.74C52.4,60.47,48,65.3,42.56,65.3Zm42,0c-5.36,0-9.8-4.83-9.8-10.74s4.33-10.74,9.8-10.74,9.84,4.83,9.8,10.74C94.4,60.47,90,65.3,84.56,65.3Z"/>
                             </svg>
                         </div>
-                        <h3 className="text-xl font-black text-white mb-1.5 shrink-0">Contraseña del Directo</h3>
+                        <h3 className="text-xl font-black text-white mb-1.5 shrink-0">{t.pass_directo}</h3>
                         <p className="text-gray-400 text-[11px] md:text-xs mb-4 leading-relaxed shrink-0">
-                            El directo está protegido. Verifica que tienes el rol requerido en nuestro servidor de Discord para obtener la contraseña actual.
+                            {t.desc_directo}
                         </p>
                         
                         <a 
@@ -1017,53 +1452,57 @@ export default function App() {
                                'bg-[#5865F2] hover:bg-[#4752C4] text-white'
                            }`}
                         >
-                            {isVerifying ? 'Verificando...' : (isLogged ? '🔄 Refrescar Contraseña' : 'Verificar mi Rol en Discord')}
+                            {isVerifying ? t.verificando : (isLogged ? t.refrescar_pass : t.verificar_rol)}
                         </a>
       
                         <div className="mt-4 w-full bg-black/40 border border-white/5 rounded-xl p-3.5 transition-all flex flex-col items-center shadow-inner shrink-0">
                             <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-2.5 flex items-center gap-1">
-                                <AlertTriangle size={12} className="text-[#e5a00d]" /> Clave del Reproductor
+                                <AlertTriangle size={12} className="text-[#e5a00d]" /> {t.clave_reproductor}
                             </span>
                             <div 
-                                className={`bg-black/60 px-3 py-2.5 rounded-lg border w-full flex items-center justify-center relative group transition-colors ${streamPassword && !streamPassword.includes('❌') && !streamPassword.includes('••••') && !streamPassword.includes('Verificando') ? 'cursor-pointer hover:border-[#e5a00d]/50 border-white/10' : 'border-white/5'}`}
+                                className={`bg-black/60 px-3 py-2.5 rounded-lg border w-full flex items-center justify-center relative group transition-colors ${isLogged ? 'cursor-pointer hover:border-[#e5a00d]/50 border-white/10' : 'border-white/5'}`}
                                 onClick={handleCopyPass}
                             >
                                 <span className={`text-base md:text-lg font-mono font-bold text-center break-all transition-colors ${
                                     !streamPassword ? 'text-red-500 text-sm' : 
                                     streamPassword.includes('•') ? 'text-gray-600 blur-[2px] select-none' : 
-                                    streamPassword.includes('Verificando') ? 'text-yellow-500 animate-pulse' : 
+                                    (streamPassword.includes('Verificando') || streamPassword.includes('Verificant') || streamPassword.includes('Egiaztatzen')) ? 'text-yellow-500 animate-pulse' : 
                                     streamPassword.includes('❌') ? 'text-red-500 text-sm' : 
                                     'text-[#e5a00d] drop-shadow-[0_0_8px_rgba(229,160,13,0.5)] group-hover:text-yellow-400'
                                 }`}>
-                                    {copiedPass ? '¡Copiada!' : (streamPassword || "❌ Vacío")}
+                                    {copiedPass ? "¡Copiado!" : (streamPassword || `❌ ${t.vacio}`)}
                                 </span>
                             </div>
-                            <p className="text-[9px] text-gray-500 mt-2.5 text-center leading-relaxed font-medium px-2">
-                                Introduce esta contraseña si el reproductor indica que la emisión es privada.
+                            <p className="text-[9px] text-[#e5a00d]/80 mt-2.5 text-center leading-relaxed font-bold px-2">
+                                {isLogged ? t.intro_clave : t.intro_clave.replace('automáticamente', 'manualmente')}
                             </p>
                         </div>
 
-                        {streamSid && (
-                            <div className="mt-3 w-full bg-black/40 border border-white/5 rounded-xl p-3.5 transition-all animate-in fade-in zoom-in duration-300 shadow-inner shrink-0">
-                                <span className="text-[10px] text-[#e5a00d] uppercase tracking-widest font-bold flex items-center gap-1.5 justify-center mb-2.5">
-                                    <Star size={14}/> Activación Premium
+                        {isLogged && (
+                            <div className="mt-4 w-full bg-black/40 border border-[#e5a00d]/30 rounded-xl p-4 transition-all animate-in fade-in zoom-in duration-300 shadow-inner shrink-0">
+                                <span className="text-[12px] text-[#e5a00d] uppercase tracking-widest font-black flex items-center gap-2 justify-center mb-3">
+                                    <Server size={16} /> {t.activacion_premium}
                                 </span>
-                                <div className="flex flex-col gap-2.5">
+                                
+                                <div className="flex bg-black/50 rounded-lg p-1 border border-white/5 mb-3">
                                     <button 
-                                        onClick={handleCopyCookie} 
-                                        className={`w-full text-xs font-bold py-2.5 px-4 rounded-lg transition-all flex items-center justify-center gap-2 ${copied ? 'bg-green-500 text-black' : 'bg-[#e5a00d] text-black hover:scale-105 shadow-lg shadow-[#e5a00d]/20'}`}
+                                        onClick={() => setUsePatreon(true)}
+                                        disabled={!streamSid} // Si no tiene SID de Angelthump (porque falló o no existe), no puede usar Patreon
+                                        className={`flex-1 py-2 text-[11px] font-bold rounded-md transition-all ${usePatreon ? 'bg-[#e5a00d] text-black shadow-md' : 'text-gray-400 hover:text-white'} ${!streamSid ? 'opacity-30 cursor-not-allowed' : ''}`}
                                     >
-                                        <Layers size={16} />
-                                        {copied ? '¡JSON Copiado!' : 'Copiar Cookie JSON'}
+                                        {t.serv_patreon}
                                     </button>
-                                    
-                                    <div className="flex items-start gap-2 p-2.5 bg-red-500/10 border border-red-500/20 rounded-lg text-[9px] md:text-[10px] text-red-400/90 leading-snug text-left">
-                                        <AlertTriangle size={14} className="shrink-0 mt-0.5 text-red-400" />
-                                        <span>
-                                            <strong>Modo Incógnito/Firefox:</strong> Permite las "Cookies de terceros" en el candado del navegador.
-                                        </span>
-                                    </div>
+                                    <button 
+                                        onClick={() => setUsePatreon(false)}
+                                        className={`flex-1 py-2 text-[11px] font-bold rounded-md transition-all ${!usePatreon ? 'bg-white/20 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
+                                    >
+                                        {t.serv_normal}
+                                    </button>
                                 </div>
+
+                                <p className="text-[10px] text-gray-400 leading-relaxed text-center font-medium">
+                                    {t.stream_desbloqueado}
+                                </p>
                             </div>
                         )}
                     </div>
@@ -1076,8 +1515,8 @@ export default function App() {
                 <div className="bg-neutral-900/50 p-6 rounded-full border border-white/5 mb-6 shadow-2xl">
                     <Tv size={80} className="text-[#e5a00d]" />
                 </div>
-                <h2 className="text-4xl md:text-6xl font-black text-white mb-4 tracking-tighter">Próximamente...</h2>
-                <p className="text-gray-400 text-lg md:text-xl max-w-xl font-light">Estamos preparando todo el catálogo de series para integrarlo en la plataforma. ¡Vuelve muy pronto!</p>
+                <h2 className="text-4xl md:text-6xl font-black text-white mb-4 tracking-tighter">{t.proximamente}</h2>
+                <p className="text-gray-400 text-lg md:text-xl max-w-xl font-light">{t.prep_series}</p>
             </div>
           )}
 
@@ -1090,12 +1529,12 @@ export default function App() {
                    <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f0f] via-transparent to-transparent"></div>
                    <div className="absolute bottom-10 md:bottom-20 left-6 md:left-12 max-w-[90%] md:max-w-3xl z-10">
                       <div className="flex items-center gap-2 text-[#e5a00d] font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mb-3 md:mb-4">
-                        <Film size={14} /> RECOMENDADO PARA TI
+                        <Film size={14} /> {t.recomendado_para_ti}
                       </div>
-                      <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-2 md:mb-4 leading-snug pb-2 drop-shadow-2xl line-clamp-2 md:line-clamp-3 break-words pr-4">{heroItem.title}</h1>
+                      <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-2 md:mb-4 leading-snug pb-2 drop-shadow-2xl line-clamp-2 md:line-clamp-3 break-words pr-4">{heroItem.displayTitle || heroItem.title}</h1>
                       <p className="text-gray-300 text-xs sm:text-sm md:text-base lg:text-lg line-clamp-2 md:line-clamp-3 font-light mb-4 md:mb-6 max-w-xl leading-relaxed">{heroItem.description}</p>
                       <button onClick={() => setSelectedItem(heroItem)} className="flex items-center gap-2 md:gap-3 bg-[#e5a00d] hover:bg-[#c9890a] text-black font-extrabold py-2 md:py-3 px-6 md:px-8 rounded-full transition-all hover:scale-105 shadow-2xl shadow-[#e5a00d]/20 w-max text-xs md:text-base">
-                        <Info size={20} className="md:w-6 md:h-6" /> VER DETALLES
+                        <Info size={20} className="md:w-6 md:h-6" /> {t.ver_detalles}
                       </button>
                    </div>
                 </div>
@@ -1105,7 +1544,7 @@ export default function App() {
                 {searchQuery ? (
                    <div>
                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
-                        <h2 className="text-xl md:text-3xl font-bold text-white">Resultados de búsqueda</h2>
+                        <h2 className="text-xl md:text-3xl font-bold text-white">{t.resultados}</h2>
                         <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
                           {renderFiltersAndSorting()}
                           <div className="flex items-center gap-1 md:gap-2 bg-neutral-900/80 p-1 rounded-lg border border-white/5 w-max">
@@ -1118,7 +1557,7 @@ export default function App() {
                      {processedDisplayItems.length > visibleCount && (
                         <div className="flex justify-center mt-10">
                            <button onClick={() => setVisibleCount(v => v + 100)} className="bg-neutral-800 hover:bg-[#e5a00d] text-white hover:text-black font-bold py-3 px-8 rounded-full transition-all border border-white/10 hover:scale-105 text-sm md:text-base shadow-lg">
-                              Cargar más resultados ({processedDisplayItems.length - visibleCount} restantes)
+                              {t.cargar_mas} ({processedDisplayItems.length - visibleCount} {t.restantes})
                            </button>
                         </div>
                      )}
@@ -1126,7 +1565,7 @@ export default function App() {
                 ) : selectedCategory ? (
                    <div className="animate-in fade-in duration-300">
                      <button onClick={() => setSelectedCategory(null)} className="flex items-center gap-2 text-gray-400 hover:text-[#e5a00d] mb-4 md:mb-8 transition-colors text-sm font-semibold">
-                       <ChevronLeft size={20} /> VOLVER
+                       <ChevronLeft size={20} /> {t.volver}
                      </button>
                      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6 md:mb-8">
                        <h2 className="text-2xl md:text-4xl font-black text-white flex items-center gap-3 tracking-tight">
@@ -1145,14 +1584,14 @@ export default function App() {
                      {processedDisplayItems.length > visibleCount && (
                         <div className="flex justify-center mt-10">
                            <button onClick={() => setVisibleCount(v => v + 100)} className="bg-neutral-800 hover:bg-[#e5a00d] text-white hover:text-black font-bold py-3 px-8 rounded-full transition-all border border-white/10 hover:scale-105 text-sm md:text-base shadow-lg">
-                              Cargar más películas ({processedDisplayItems.length - visibleCount} restantes)
+                              {t.cargar_mas} ({processedDisplayItems.length - visibleCount} {t.restantes})
                            </button>
                         </div>
                      )}
                    </div>
                 ) : (
                    categories.map((cat, idx) => (
-                       <MovieRow key={idx} title={cat.title} items={cat.items} onSelect={setSelectedItem} onCategoryClick={setSelectedCategory} icon={cat.icon} eager={idx === 0} />
+                       <MovieRow key={idx} title={cat.title} items={cat.items} onSelect={setSelectedItem} onCategoryClick={setSelectedCategory} icon={cat.icon} eager={idx === 0} t={t} />
                    ))
                 )}
               </div>
@@ -1175,19 +1614,19 @@ export default function App() {
             <div className="flex-1 p-6 md:p-10 lg:p-12 flex flex-col overflow-y-auto">
                 {selectedItem.isSaga ? (
                     <div className="flex flex-col flex-1">
-                        <div className="text-[#e5a00d] font-bold text-xs md:text-sm mb-2 flex items-center gap-1 uppercase tracking-widest"><Layers size={14}/> Colección Oficial</div>
-                        <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-white mb-6 leading-snug pb-2">{selectedItem.title}</h2>
-                        <p className="text-gray-400 text-sm md:text-base lg:text-lg font-light leading-relaxed mb-8">Esta es una colección que agrupa varias películas de tu biblioteca. Selecciona la película que deseas ver o descargar.</p>
+                        <div className="text-[#e5a00d] font-bold text-xs md:text-sm mb-2 flex items-center gap-1 uppercase tracking-widest"><Layers size={14}/> {t.coleccion_oficial}</div>
+                        <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-white mb-6 leading-snug pb-2">{selectedItem.displayTitle || selectedItem.title}</h2>
+                        <p className="text-gray-400 text-sm md:text-base lg:text-lg font-light leading-relaxed mb-8">{t.pelis_biblioteca.split(' (')[0]}</p>
                         <div className="mt-4 flex flex-col gap-8 shrink-0 pb-4">
                            <div className="w-full">
-                              <h4 className="text-white font-bold text-sm md:text-base mb-4 border-b border-white/10 pb-2">Películas en tu biblioteca ({selectedItem.movies.length})</h4>
+                              <h4 className="text-white font-bold text-sm md:text-base mb-4 border-b border-white/10 pb-2">{t.pelis_biblioteca} ({selectedItem.movies.length})</h4>
                               <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
                                  {selectedItem.movies.map(movie => (
                                     <div key={movie.id} className="cursor-pointer group flex flex-col" onClick={() => setSelectedItem(movie)}>
                                        <div className="aspect-[2/3] rounded-md overflow-hidden relative shadow-lg">
-                                           <LazyImage src={movie.image} alt={movie.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                           <LazyImage src={movie.image} alt={movie.displayTitle || movie.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                                        </div>
-                                       <p className="text-[11px] md:text-xs font-semibold text-gray-200 mt-2 line-clamp-2 leading-normal pb-1 group-hover:text-[#e5a00d]">{movie.title}</p>
+                                       <p className="text-[11px] md:text-xs font-semibold text-gray-200 mt-2 line-clamp-2 leading-normal pb-1 group-hover:text-[#e5a00d]">{movie.displayTitle || movie.title}</p>
                                        <p className="text-[9px] md:text-[10px] text-gray-500">{movie.year}</p>
                                     </div>
                                  ))}
@@ -1207,10 +1646,10 @@ export default function App() {
                                 <Layers size={14}/> {selectedItem.collection.name} <ChevronRight size={14}/>
                             </div>
                         )}
-                        <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-white mb-6 leading-snug pb-2">{selectedItem.title}</h2>
+                        <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-white mb-6 leading-snug pb-2">{selectedItem.displayTitle || selectedItem.title}</h2>
                         <div className="flex flex-wrap items-center gap-3 md:gap-4 mb-6">
                           <div className="flex flex-col">
-                            <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Año</span>
+                            <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-tighter">{t.año}</span>
                             <span className="text-white font-bold">{selectedItem.year}</span>
                           </div>
                           <div className="w-px h-6 md:h-8 bg-white/10 mx-1 md:mx-2"></div>
@@ -1220,45 +1659,47 @@ export default function App() {
                           </div>
                           <div className="w-px h-6 md:h-8 bg-white/10 mx-1 md:mx-2"></div>
                           <div className="flex flex-col">
-                            <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Calidad</span>
-                            <span className={`px-2 py-0.5 rounded text-[10px] md:text-[11px] font-black mt-1 uppercase border ${selectedItem.videoQuality === '4K' ? 'bg-[#e5a00d] text-black border-[#e5a00d]' : 'bg-white/10 text-white border-white/20'}`}>
+                            <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-tighter">{t.calidad}</span>
+                            <span className={`inline-flex items-center justify-center leading-none px-2 py-1 rounded text-[10px] md:text-[11px] font-black mt-1 uppercase border ${selectedItem.videoQuality === '4K' ? 'bg-[#e5a00d] text-black border-[#e5a00d]' : 'bg-white/10 text-white border-white/20'}`}>
                                 {selectedItem.videoQuality}
                             </span>
                           </div>
                           <div className="w-px h-6 md:h-8 bg-white/10 mx-1 md:mx-2"></div>
                           <div className="flex flex-col">
-                            <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Idiomas</span>
+                            <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-tighter">{t.idiomas}</span>
                             <span className="text-gray-300 font-medium text-xs md:text-sm mt-1">{selectedItem.language}</span>
                           </div>
                         </div>
                         <p className="text-gray-400 text-sm md:text-base lg:text-lg font-light leading-relaxed mb-8">{selectedItem.description}</p>
                         {selectedItem.link !== '#' ? (
                            <a href={selectedItem.link} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-3 bg-[#e5a00d] hover:bg-[#c9890a] text-black font-black py-4 px-6 md:px-10 rounded-full text-sm md:text-lg transition-all hover:scale-105 shadow-xl shadow-[#e5a00d]/10 w-full md:w-max group shrink-0">
-                             <Download size={22} className="group-hover:translate-y-1 transition-transform" /> DESCARGAR A MI BIBLIOTECA
+                             <Download size={22} className="group-hover:translate-y-1 transition-transform" /> {t.descargar}
                            </a>
                         ) : (
                            <button disabled className="flex items-center justify-center gap-3 bg-neutral-800 text-gray-500 font-black py-4 px-6 md:px-10 rounded-full text-sm md:text-lg cursor-not-allowed w-full md:w-max shrink-0">
-                             <AlertTriangle size={22} /> ENLACE NO DISPONIBLE
+                             <AlertTriangle size={22} /> {t.enlace_no_disp}
                            </button>
                         )}
                         <div className="mt-12 flex flex-col gap-2 shrink-0 pb-4">
                            {sagaItems.length > 0 && (
                               <MovieRow 
-                                  title="Más de esta saga" 
+                                  title={t.mas_saga}
                                   items={sagaItems} 
                                   onSelect={setSelectedItem} 
                                   icon={<Layers size={18} />} 
                                   isModal={true}
                                   onTitleClick={() => setSelectedItem(sagas.find(s => s.id === `saga-${selectedItem.collection.id}`))}
+                                  t={t}
                               />
                            )}
                            {items.filter(i => !i.isSaga && i.id !== selectedItem.id && i.genres.some(g => selectedItem.genres.includes(g))).length > 0 && (
                               <MovieRow 
-                                  title="Títulos similares recomendados" 
+                                  title={t.titulos_similares}
                                   items={shuffleArray(items.filter(i => !i.isSaga && i.id !== selectedItem.id && i.genres.some(g => selectedItem.genres.includes(g))))} 
                                   onSelect={setSelectedItem} 
                                   icon={<Star size={18} />} 
                                   isModal={true}
+                                  t={t}
                               />
                            )}
                         </div>
