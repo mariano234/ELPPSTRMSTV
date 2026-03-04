@@ -196,29 +196,59 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
             setError(null);
             setStatus('Autenticando con Angelthump...');
             try {
-                // 1. Evitamos enviar frases de la interfaz ("Sin Contraseña") a Angelthump como si fueran claves
-                const isValidPass = streamPassword && streamPassword !== t.sin_pass && !streamPassword.includes('••••') && !streamPassword.includes('❌');
+                // Limpiamos la SID por si el bot incluye la palabra 'angelthump.sid='
+                const cleanSid = streamSid ? streamSid.replace('angelthump.sid=', '') : '';
                 
-                // 2. Solo inyectamos la Cookie de Patreon si el interruptor Premium está encendido
-                const sidParam = (streamSid && usePatreon) ? `&sid=${streamSid}` : '';
-                const passParam = isValidPass ? `&password=${encodeURIComponent(streamPassword)}` : '';
-                const patreonParam = `&patreon=${usePatreon}`;
-
-                const res = await fetch(`/.netlify/functions/angelthump?channel=${channel}${sidParam}${passParam}${patreonParam}`);
-                if (!res.ok) throw new Error("Fallo al contactar con el proxy de Netlify");
-                const data = await res.json();
+                // 1. Evitamos enviar frases de la interfaz a Angelthump
+                const cleanPass = streamPassword ? streamPassword.trim() : '';
+                const isValidPass = cleanPass && cleanPass !== t.sin_pass && !cleanPass.includes('••••') && !cleanPass.includes('❌');
                 
-                // 3. Traducimos el error booleano ("true") a un error humano
-                if (!data.token) {
-                    let errorMsg = "Acceso denegado. Contraseña incorrecta o suscripción caducada.";
-                    if (typeof data.error === 'string') errorMsg = data.error;
-                    else if (data.message) errorMsg = data.message;
-                    throw new Error(errorMsg);
+                // 2. Preparamos el Payload asegurando EXCLUSIVIDAD. 
+                // VITAL: Pasamos la cookie en bruto (sin decodificar) para no romper el símbolo '+' ni las firmas
+                const payload = {
+                    channel: channel,
+                    patreon: usePatreon
+                };
+                
+                if (usePatreon && cleanSid) {
+                    payload.sid = cleanSid;
+                } else if (!usePatreon && isValidPass) {
+                    payload.password = cleanPass;
                 }
 
-                setStatus('Cargando Stream Nativo...');
-                const m3u8Url = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
+                console.log("🛠️ [DEBUG] Payload que enviamos al proxy:", payload);
 
+                const res = await fetch(`/.netlify/functions/angelthump`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                // 3. Leemos la respuesta de Netlify ANTES de lanzar un error, para no tapar el error real
+                let data = {};
+                try { data = await res.json(); } catch(e) {}
+                
+                if (!res.ok) {
+                    throw new Error(data.error || "Fallo al contactar con el proxy de Netlify");
+                }
+                
+                if (!data.token) {
+                    throw new Error("Angelthump no devolvió ningún token válido.");
+                }
+
+                // ==========================================
+                // EL CAMBIO VITAL: USAR EL PUENTE PROXY PARA EL VÍDEO
+                // ==========================================
+                // Generamos la URL original con el token que nos ha dado el proxy POST
+                const rawM3u8 = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
+                
+                // Le decimos al reproductor de React que NO vaya a Angelthump directamente,
+                // sino que use nuestro proxy GET para evitar los bloqueos de CORS
+                const m3u8Url = `/.netlify/functions/angelthump?url=${encodeURIComponent(rawM3u8)}`;
+
+                console.log("🔗 [DEBUG] URL del vídeo pasando por proxy:", m3u8Url);
+
+                // Aquí ya inicializas HLS.js con la nueva 'm3u8Url'
                 if (!window.Hls) {
                     await new Promise((resolve, reject) => {
                         const script = document.createElement('script');
@@ -716,20 +746,29 @@ export default function App() {
                         let finalPass = "";
                         let finalSid = null;
 
-                        const passRegex = /Contrase[ñn]a\s*:\s*(.*?)(?=\s*Cookie\s*:|$)/i;
-                        const cookieRegex = /Cookie\s*:\s*(.*)/i;
+                        const lines = cleanText.split('\n');
+                        for (const line of lines) {
+                            const lowerLine = line.toLowerCase();
+                            if (lowerLine.includes('contraseña:') || lowerLine.includes('contrasena:')) {
+                                finalPass = line.substring(lowerLine.indexOf(':') + 1).trim().replace(/^['"]|['"]$/g, '');
+                            } else if (lowerLine.includes('cookie:')) {
+                                let rawSid = line.substring(lowerLine.indexOf(':') + 1).trim().replace(/^['"]|['"]$/g, '');
+                                if (rawSid.includes('angelthump.sid=')) {
+                                    rawSid = rawSid.split('angelthump.sid=')[1].trim();
+                                }
+                                finalSid = rawSid;
+                            }
+                        }
 
-                        const pMatch = cleanText.match(passRegex);
-                        const cMatch = cleanText.match(cookieRegex);
-
-                        if (pMatch) finalPass = pMatch[1].trim().replace(/^['"]|['"]$/g, '');
-                        if (cMatch) finalSid = cMatch[1].trim().replace(/^['"]|['"]$/g, '');
-
-                        if (!finalPass && !cMatch) {
+                        if (!finalPass && !finalSid) {
                             if (cleanText.includes('|')) {
                                 const parts = cleanText.split('|');
                                 finalPass = parts[0].trim().replace(/^['"]|['"]$/g, '');
-                                finalSid = parts[1] ? parts[1].trim().replace(/^['"]|['"]$/g, '') : null;
+                                let rawSid = parts[1] ? parts[1].trim().replace(/^['"]|['"]$/g, '') : null;
+                                if (rawSid && rawSid.includes('angelthump.sid=')) {
+                                    rawSid = rawSid.split('angelthump.sid=')[1].trim();
+                                }
+                                finalSid = rawSid;
                             } else {
                                 finalPass = cleanText.replace(/Contrase.*?:/i, '').trim().replace(/^['"]|['"]$/g, '');
                             }

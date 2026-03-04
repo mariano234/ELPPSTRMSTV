@@ -29,7 +29,7 @@ exports.handler = async function(event, context) {
     });
     const tokenData = await tokenRes.json();
     
-    // Si falla el código, lo imprimimos en la terminal de Netlify Dev para ver el motivo real
+    // Si falla el código
     if (!tokenData.access_token) {
         console.error("Fallo de Discord (Fase A):", tokenData);
         return { statusCode: 401, body: JSON.stringify({ success: false, error: 'Código inválido o ya usado', detalles: tokenData }) };
@@ -59,7 +59,7 @@ exports.handler = async function(event, context) {
     });
     const msgData = await msgRes.json();
 
-    // Manejo de errores de Discord (por si el bot no tiene permisos en el canal)
+    // Manejo de errores de Discord
     if (msgData.message) {
        console.error("Fallo de permisos del Bot (Fase E):", msgData);
        return { statusCode: 403, body: JSON.stringify({ success: false, error: `Discord bloqueó al bot: ${msgData.message}` }) };
