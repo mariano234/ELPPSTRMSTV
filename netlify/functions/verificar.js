@@ -12,7 +12,7 @@ exports.handler = async function(event, context) {
   const GUILD_ID = process.env.DISCORD_GUILD_ID;
   const ROLE_ID = process.env.DISCORD_ROLE_ID;
   const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
-  const REDIRECT_URI = 'https://elpepestreamstv.netlify.app/?tab=directos';
+  const REDIRECT_URI = 'https://elpepestreamstv.marianopepe234.workers.dev/?tab=directos';
 
   try {
     // --- FASE A: Intercambiar código por Token del Usuario ---

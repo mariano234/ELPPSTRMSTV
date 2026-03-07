@@ -1484,7 +1484,7 @@ export default function App() {
                         </p>
                         
                         <a 
-                           href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felpepestreamstv.netlify.app%2F%3Ftab%3Ddirectos&scope=identify"
+                           href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felpepestreamstv.marianopepe234.workers.dev%2F%3Ftab%3Ddirectos&scope=identify"
                            className={`font-bold py-2.5 px-6 rounded-md transition-all w-full shadow-lg hover:scale-105 flex items-center justify-center gap-2 text-sm shrink-0 ${
                                isVerifying ? 'opacity-50 pointer-events-none bg-[#5865F2] text-white' : 
                                isLogged ? 'bg-neutral-800 hover:bg-neutral-700 text-gray-300 border border-white/10' : 
