@@ -26,7 +26,6 @@ export async function onRequest(context) {
         if (!targetUrl) return new Response(JSON.stringify({ error: "Falta la URL" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
         try {
-            // Cloudflare fetch maneja HTTPS y redirecciones automáticamente
             const res = await fetch(targetUrl, {
                 method: 'GET',
                 headers: {
@@ -70,7 +69,6 @@ export async function onRequest(context) {
                 });
             } 
             else {
-                // Si es vídeo, Cloudflare puede devolver el stream directamente sin conversiones base64
                 const newHeaders = new Headers(res.headers);
                 newHeaders.set("Access-Control-Allow-Origin", "*");
                 newHeaders.set("Cache-Control", "public, max-age=3600");

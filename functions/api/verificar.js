@@ -1,5 +1,4 @@
 export async function onRequest(context) {
-  // En Cloudflare Pages Functions, context.request tiene la URL y context.env las variables de entorno
   const { request, env } = context;
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
@@ -16,17 +15,17 @@ export async function onRequest(context) {
     });
   }
 
-  // Obtenemos las variables de entorno desde el panel de Cloudflare (context.env)
-  const CLIENT_ID = env.DISCORD_CLIENT_ID;
-  const CLIENT_SECRET = env.DISCORD_CLIENT_SECRET;
-  const BOT_TOKEN = env.DISCORD_BOT_TOKEN;
-  const GUILD_ID = env.DISCORD_GUILD_ID;
-  const ROLE_ID = env.DISCORD_ROLE_ID;
-  const CHANNEL_ID = env.DISCORD_CHANNEL_ID;
+  // AHORA SÍ: Usamos exactamente los nombres que tienes en tu captura de pantalla
+  const CLIENT_ID = env.CLIENT_ID;
+  const CLIENT_SECRET = env.CLIENT_SECRET;
+  const BOT_TOKEN = env.BOT_TOKEN;
+  const GUILD_ID = env.GUILD_ID;
+  const ROLE_ID = env.ROLE_ID;
+  const CHANNEL_ID = env.CHANNEL_ID;
+  
   const REDIRECT_URI = 'https://pruebaelppstrmstv.pages.dev/?tab=directos';
 
   try {
-    // --- FASE A: Intercambiar código por Token del Usuario ---
     const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -47,13 +46,11 @@ export async function onRequest(context) {
         });
     }
 
-    // --- FASE B: Saber quién es el usuario ---
     const userRes = await fetch('https://discord.com/api/users/@me', {
       headers: { authorization: `Bearer ${tokenData.access_token}` }
     });
     const userData = await userRes.json();
 
-    // --- FASE C: Buscar al usuario en tu servidor ---
     const memberRes = await fetch(`https://discord.com/api/guilds/${GUILD_ID}/members/${userData.id}`, {
       headers: { authorization: `Bot ${BOT_TOKEN}` } 
     });
@@ -64,14 +61,12 @@ export async function onRequest(context) {
     }
     const memberData = await memberRes.json();
 
-    // --- FASE D: Comprobar el Rol ---
     if (!memberData.roles.includes(ROLE_ID)) {
        return new Response(JSON.stringify({ success: false, error: 'No tienes el rol VIP necesario' }), { 
            status: 403, headers: corsHeaders 
        });
     }
 
-    // --- FASE E: Extraer el mensaje ---
     const msgRes = await fetch(`https://discord.com/api/channels/${CHANNEL_ID}/messages?limit=1`, {
       headers: { authorization: `Bot ${BOT_TOKEN}` }
     });
