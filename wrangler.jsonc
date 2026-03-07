@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "elpepe-streams",
+  "name": "elpepestreamstv",
   "compatibility_date": "2026-03-01",
   "observability": {
     "enabled": true
