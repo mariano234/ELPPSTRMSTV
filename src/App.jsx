@@ -8,6 +8,10 @@ const CACHE_VERSION = "v2_multilang";
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; 
 const STREAM_CHANNEL = "elpintaunas"; // Canal definitivo
 
+// --- API BACKEND (Cloudflare) ---
+// Cambia esto a '' si las rutas de tu Worker (verificar y angelthump) están en la raíz y no dentro de /api
+const API_BASE = "/api"; 
+
 const LANGUAGE_MAP = {
   'es': 'Español', 'es-es': 'Español (España)', 'es-mx': 'Español (Latino)',
   'en': 'Inglés', 'en-us': 'Inglés (EEUU)', 'en-gb': 'Inglés (Reino Unido)',
@@ -154,7 +158,7 @@ const UI_TRANSLATIONS = {
     desc_directo: 'O directo está protexido. Verifica que tes o rol requirido no noso servidor de Discord para obter o contrasinal actual.',
     verificando: 'Verificando...', refrescar_pass: '🔄 Refrescar Contrasinal', verificar_rol: 'Verificar o meu Rol en Discord',
     clave_reproductor: 'Clave do Reprodutor', intro_clave: 'O contrasinal detectouse e inxectarase automaticamente no reprodutor.',
-    activacion_premium: 'Opcións de Servidor', stream_desbloqueado: 'Desbloqueaches o reprodutor nativo! Goza do directo sen restricións.',
+    activacion_premium: 'Opcións de Servidor', stream_desbloqueado: 'Desbloqueaches o reprodutor nativo! Goza do directo sen restriccións.',
     vacio: 'Baleiro', sin_pass: 'Sen Contrasinal', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normal (Público)'
   },
   'eu': {
@@ -183,6 +187,24 @@ const UI_TRANSLATIONS = {
   }
 };
 
+// --- FUNCIÓN EXTRACTORA DE IDENTIFICADOR ---
+const extractIdentifier = (sid) => {
+  if (!sid) return null;
+  let str = sid;
+  // Decodificamos si viene como URL encoded (s%3A)
+  if (str.startsWith('s%3A')) str = decodeURIComponent(str);
+  // Formato Express Session: s:SessionID.Signature
+  if (str.startsWith('s:')) return str.substring(2).split('.')[0];
+  // Formato JWT: eyJhbG...
+  if (str.startsWith('ey')) {
+      try {
+          const decoded = JSON.parse(atob(str.split('.')[1]));
+          return decoded.id || decoded.userId || decoded.sub || str;
+      } catch (e) { return str; }
+  }
+  return str;
+};
+
 // --- COMPONENTE REPRODUCTOR NATIVO HLS ---
 const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t }) => {
     const videoRef = useRef(null);
@@ -204,7 +226,6 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                 const isValidPass = cleanPass && cleanPass !== t.sin_pass && !cleanPass.includes('••••') && !cleanPass.includes('❌');
                 
                 // 2. Preparamos el Payload asegurando EXCLUSIVIDAD. 
-                // VITAL: Pasamos la cookie en bruto (sin decodificar) para no romper el símbolo '+' ni las firmas
                 const payload = {
                     channel: channel,
                     patreon: usePatreon
@@ -218,18 +239,19 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
 
                 console.log("🛠️ [DEBUG] Payload que enviamos al proxy:", payload);
 
-                const res = await fetch(`/.netlify/functions/angelthump`, {
+                // Llamada con API_BASE
+                const res = await fetch(`${API_BASE}/angelthump`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
                 
-                // 3. Leemos la respuesta de Netlify ANTES de lanzar un error, para no tapar el error real
+                // 3. Leemos la respuesta
                 let data = {};
                 try { data = await res.json(); } catch(e) {}
                 
                 if (!res.ok) {
-                    throw new Error(data.error || "Fallo al contactar con el proxy de Netlify");
+                    throw new Error(data.error || "Fallo al contactar con el proxy del backend");
                 }
                 
                 if (!data.token) {
@@ -243,8 +265,8 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                 const rawM3u8 = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
                 
                 // Le decimos al reproductor de React que NO vaya a Angelthump directamente,
-                // sino que use nuestro proxy GET para evitar los bloqueos de CORS
-                const m3u8Url = `/.netlify/functions/angelthump?url=${encodeURIComponent(rawM3u8)}`;
+                // sino que use nuestro proxy GET usando la nueva variable de entorno API_BASE
+                const m3u8Url = `${API_BASE}/angelthump?url=${encodeURIComponent(rawM3u8)}`;
 
                 console.log("🔗 [DEBUG] URL del vídeo pasando por proxy:", m3u8Url);
 
@@ -727,7 +749,8 @@ export default function App() {
         setIsVerifying(true);
         setStreamPassword(t.verificando);
         
-        fetch(`/.netlify/functions/verificar?code=${code}`)
+        // Llamada con API_BASE a la nueva ruta
+        fetch(`${API_BASE}/verificar?code=${code}`)
             .then(async res => {
                 if (!res.ok) {
                     const text = await res.text();
