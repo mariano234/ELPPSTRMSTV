@@ -1,17 +1,28 @@
-exports.handler = async function(event, context) {
-  // 1. Recibimos el código desde la web
-  const code = event.queryStringParameters.code;
+export async function onRequest(context) {
+  // En Cloudflare Pages Functions, context.request tiene la URL y context.env las variables de entorno
+  const { request, env } = context;
+  const url = new URL(request.url);
+  const code = url.searchParams.get('code');
+
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Content-Type": "application/json"
+  };
+
   if (!code) {
-    return { statusCode: 400, body: JSON.stringify({ success: false, error: 'Falta el código' }) };
+    return new Response(JSON.stringify({ success: false, error: 'Falta el código' }), { 
+        status: 400, 
+        headers: corsHeaders 
+    });
   }
 
-  // 2. Cargamos tus datos secretos (los pondremos luego en la web de Netlify)
-  const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
-  const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
-  const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
-  const GUILD_ID = process.env.DISCORD_GUILD_ID;
-  const ROLE_ID = process.env.DISCORD_ROLE_ID;
-  const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
+  // Obtenemos las variables de entorno desde el panel de Cloudflare (context.env)
+  const CLIENT_ID = env.DISCORD_CLIENT_ID;
+  const CLIENT_SECRET = env.DISCORD_CLIENT_SECRET;
+  const BOT_TOKEN = env.DISCORD_BOT_TOKEN;
+  const GUILD_ID = env.DISCORD_GUILD_ID;
+  const ROLE_ID = env.DISCORD_ROLE_ID;
+  const CHANNEL_ID = env.DISCORD_CHANNEL_ID;
   const REDIRECT_URI = 'https://elpepestreamstv.marianopepe234.workers.dev/?tab=directos';
 
   try {
@@ -27,12 +38,13 @@ exports.handler = async function(event, context) {
         redirect_uri: REDIRECT_URI
       })
     });
+    
     const tokenData = await tokenRes.json();
     
-    // Si falla el código
     if (!tokenData.access_token) {
-        console.error("Fallo de Discord (Fase A):", tokenData);
-        return { statusCode: 401, body: JSON.stringify({ success: false, error: 'Código inválido o ya usado', detalles: tokenData }) };
+        return new Response(JSON.stringify({ success: false, error: 'Código inválido o ya usado', detalles: tokenData }), { 
+            status: 401, headers: corsHeaders 
+        });
     }
 
     // --- FASE B: Saber quién es el usuario ---
@@ -45,12 +57,18 @@ exports.handler = async function(event, context) {
     const memberRes = await fetch(`https://discord.com/api/guilds/${GUILD_ID}/members/${userData.id}`, {
       headers: { authorization: `Bot ${BOT_TOKEN}` } 
     });
-    if (memberRes.status === 404) return { statusCode: 403, body: JSON.stringify({ success: false, error: 'No estás en el servidor' }) };
+    if (memberRes.status === 404) {
+        return new Response(JSON.stringify({ success: false, error: 'No estás en el servidor' }), { 
+            status: 403, headers: corsHeaders 
+        });
+    }
     const memberData = await memberRes.json();
 
     // --- FASE D: Comprobar el Rol ---
     if (!memberData.roles.includes(ROLE_ID)) {
-       return { statusCode: 403, body: JSON.stringify({ success: false, error: 'No tienes el rol VIP necesario' }) };
+       return new Response(JSON.stringify({ success: false, error: 'No tienes el rol VIP necesario' }), { 
+           status: 403, headers: corsHeaders 
+       });
     }
 
     // --- FASE E: Extraer el mensaje ---
@@ -59,24 +77,27 @@ exports.handler = async function(event, context) {
     });
     const msgData = await msgRes.json();
 
-    // Manejo de errores de Discord
     if (msgData.message) {
-       console.error("Fallo de permisos del Bot (Fase E):", msgData);
-       return { statusCode: 403, body: JSON.stringify({ success: false, error: `Discord bloqueó al bot: ${msgData.message}` }) };
+       return new Response(JSON.stringify({ success: false, error: `Discord bloqueó al bot: ${msgData.message}` }), { 
+           status: 403, headers: corsHeaders 
+       });
     }
 
-    // Manejo de errores si el canal está vacío
     if (!Array.isArray(msgData) || msgData.length === 0) {
-       return { statusCode: 404, body: JSON.stringify({ success: false, error: 'El canal de la contraseña está totalmente vacío.' }) };
+       return new Response(JSON.stringify({ success: false, error: 'El canal de la contraseña está totalmente vacío.' }), { 
+           status: 404, headers: corsHeaders 
+       });
     }
 
     const password = msgData[0].content; 
 
-    // Mandar contraseña a tu React
-    return { statusCode: 200, body: JSON.stringify({ success: true, password: password }) };
+    return new Response(JSON.stringify({ success: true, password: password }), { 
+        status: 200, headers: corsHeaders 
+    });
 
   } catch (error) {
-    console.error("Error crítico en el backend:", error);
-    return { statusCode: 500, body: JSON.stringify({ success: false, error: error.message }) };
+    return new Response(JSON.stringify({ success: false, error: error.message }), { 
+        status: 500, headers: corsHeaders 
+    });
   }
-};
+}
