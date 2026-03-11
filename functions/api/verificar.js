@@ -23,7 +23,7 @@ export async function onRequest(context) {
   const ROLE_ID = env.ROLE_ID;
   const CHANNEL_ID = env.CHANNEL_ID;
   
-  const REDIRECT_URI = 'https://pruebaelppstrmstv.pages.dev/?tab=directos';
+  const REDIRECT_URI = 'https://elppstrmstv.pages.dev/?tab=directos';
 
   try {
     const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
