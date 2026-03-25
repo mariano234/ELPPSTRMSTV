@@ -2,14 +2,9 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Search, Home, Film, Download, X, Info, ChevronRight, ChevronLeft, AlertTriangle, Monitor, Layers, Star, Grid, List as ListIcon, Filter, ArrowDownWideNarrow, Globe, Calendar, Tv, Radio, Server } from 'lucide-react';
 
 // --- CONFIGURACIÓN ---
-const TMDB_API_KEY = "342815a2b6a677bbc29fd13a6e3c1c3a"; 
-const SHEET_ID = "104RB6GK9_m_nzIakTU3MJLaDJPwt9fYmfHF3ikyixFE";
-const CACHE_VERSION = "v2_multilang"; 
+const CACHE_VERSION = "v3_cloud_optimized"; 
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; 
-const STREAM_CHANNEL = "elpintaunas"; // Canal definitivo
-
-// --- API BACKEND (Cloudflare) ---
-// Cambia esto a '' si las rutas de tu Worker (verificar y angelthump) están en la raíz y no dentro de /api
+const STREAM_CHANNEL = "elpintaunas"; 
 const API_BASE = "/api"; 
 
 const LANGUAGE_MAP = {
@@ -18,45 +13,6 @@ const LANGUAGE_MAP = {
   'cat': 'Catalán', 'ca': 'Catalán', 'va': 'Valenciano', 'val': 'Valenciano',
   'eus': 'Euskera', 'eu': 'Euskera', 'gal': 'Gallego', 'gl': 'Gallego',
   'fr': 'Francés', 'it': 'Italiano', 'de': 'Alemán', 'ja': 'Japonés', 'jp': 'Japonés', 'ko': 'Coreano', 'pt': 'Portugués'
-};
-
-// --- DICCIONARIO DE GÉNEROS ---
-const GENRE_TRANSLATIONS = {
-    'Acción': { ca: 'Acció', gl: 'Acción', eu: 'Ekintza', es: 'Acción' },
-    'Action': { ca: 'Acció', gl: 'Acción', eu: 'Ekintza', es: 'Acción' },
-    'Aventura': { ca: 'Aventura', gl: 'Aventura', eu: 'Abentura', es: 'Aventura' },
-    'Adventure': { ca: 'Aventura', gl: 'Aventura', eu: 'Abentura', es: 'Aventura' },
-    'Animación': { ca: 'Animació', gl: 'Animación', eu: 'Animazioa', es: 'Animación' },
-    'Animation': { ca: 'Animació', gl: 'Animación', eu: 'Animazioa', es: 'Animación' },
-    'Comedia': { ca: 'Comèdia', gl: 'Comedia', eu: 'Komedia', es: 'Comedia' },
-    'Comedy': { ca: 'Comèdia', gl: 'Comedia', eu: 'Komedia', es: 'Comedia' },
-    'Crimen': { ca: 'Crim', gl: 'Crime', eu: 'Krimena', es: 'Crimen' },
-    'Crime': { ca: 'Crim', gl: 'Crime', eu: 'Krimena', es: 'Crimen' },
-    'Documental': { ca: 'Documental', gl: 'Documental', eu: 'Dokumentala', es: 'Documental' },
-    'Documentary': { ca: 'Documental', gl: 'Documental', eu: 'Dokumentala', es: 'Documental' },
-    'Drama': { ca: 'Drama', gl: 'Drama', eu: 'Drama', es: 'Drama' },
-    'Familia': { ca: 'Família', gl: 'Familia', eu: 'Familia', es: 'Familia' },
-    'Family': { ca: 'Família', gl: 'Familia', eu: 'Familia', es: 'Familia' },
-    'Fantasía': { ca: 'Fantasia', gl: 'Fantasía', eu: 'Fantasia', es: 'Fantasía' },
-    'Fantasy': { ca: 'Fantasia', gl: 'Fantasía', eu: 'Fantasia', es: 'Fantasía' },
-    'Historia': { ca: 'Història', gl: 'Historia', eu: 'Historia', es: 'Historia' },
-    'History': { ca: 'Història', gl: 'Historia', eu: 'Historia', es: 'Historia' },
-    'Terror': { ca: 'Terror', gl: 'Terror', eu: 'Beldurra', es: 'Terror' },
-    'Horror': { ca: 'Terror', gl: 'Terror', eu: 'Beldurra', es: 'Terror' },
-    'Música': { ca: 'Música', gl: 'Música', eu: 'Musika', es: 'Música' },
-    'Music': { ca: 'Música', gl: 'Música', eu: 'Musika', es: 'Música' },
-    'Misterio': { ca: 'Misteri', gl: 'Misterio', eu: 'Misterioa', es: 'Misterio' },
-    'Mystery': { ca: 'Misteri', gl: 'Misterio', eu: 'Misterioa', es: 'Misterio' },
-    'Romance': { ca: 'Romanç', gl: 'Romance', eu: 'Erromantzea', es: 'Romance' },
-    'Ciencia ficción': { ca: 'Ciència ficció', gl: 'Ciencia ficción', eu: 'Zientzia fikzioa', es: 'Ciencia ficción' },
-    'Science Fiction': { ca: 'Ciència ficció', gl: 'Ciencia ficción', eu: 'Zientzia fikzioa', es: 'Ciencia ficción' },
-    'Película de TV': { ca: 'Pel·lícula de TV', gl: 'Película de TV', eu: 'Telebistako filma', es: 'Película de TV' },
-    'TV Movie': { ca: 'Pel·lícula de TV', gl: 'Película de TV', eu: 'Telebistako filma', es: 'Película de TV' },
-    'Suspense': { ca: 'Suspens', gl: 'Suspense', eu: 'Suspensea', es: 'Suspense' },
-    'Thriller': { ca: 'Suspens', gl: 'Suspense', eu: 'Suspensea', es: 'Suspense' },
-    'Bélica': { ca: 'Bèl·lica', gl: 'Bélica', eu: 'Gerra', es: 'Bélica' },
-    'War': { ca: 'Bèl·lica', gl: 'Bélica', eu: 'Gerra', es: 'Bélica' },
-    'Western': { ca: 'Western', gl: 'Western', eu: 'Western', es: 'Western' }
 };
 
 // --- DICCIONARIO DE IDIOMAS DETALLE ---
@@ -191,11 +147,8 @@ const UI_TRANSLATIONS = {
 const extractIdentifier = (sid) => {
   if (!sid) return null;
   let str = sid;
-  // Decodificamos si viene como URL encoded (s%3A)
   if (str.startsWith('s%3A')) str = decodeURIComponent(str);
-  // Formato Express Session: s:SessionID.Signature
   if (str.startsWith('s:')) return str.substring(2).split('.')[0];
-  // Formato JWT: eyJhbG...
   if (str.startsWith('ey')) {
       try {
           const decoded = JSON.parse(atob(str.split('.')[1]));
@@ -218,14 +171,10 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
             setError(null);
             setStatus('Autenticando con Angelthump...');
             try {
-                // Limpiamos la SID por si el bot incluye la palabra 'angelthump.sid='
                 const cleanSid = streamSid ? streamSid.replace('angelthump.sid=', '') : '';
-                
-                // 1. Evitamos enviar frases de la interfaz a Angelthump
                 const cleanPass = streamPassword ? streamPassword.trim() : '';
                 const isValidPass = cleanPass && cleanPass !== t.sin_pass && !cleanPass.includes('••••') && !cleanPass.includes('❌');
                 
-                // 2. Preparamos el Payload asegurando EXCLUSIVIDAD. 
                 const payload = {
                     channel: channel,
                     patreon: usePatreon
@@ -239,14 +188,12 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
 
                 console.log("🛠️ [DEBUG] Payload que enviamos al proxy:", payload);
 
-                // Llamada con API_BASE
                 const res = await fetch(`${API_BASE}/angelthump`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
                 
-                // 3. Leemos la respuesta
                 let data = {};
                 try { data = await res.json(); } catch(e) {}
                 
@@ -258,19 +205,14 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                     throw new Error("Angelthump no devolvió ningún token válido.");
                 }
 
-                // ==========================================
-                // EL CAMBIO VITAL: USAR EL PUENTE PROXY PARA EL VÍDEO
-                // ==========================================
                 // Generamos la URL original con el token que nos ha dado el proxy POST
                 const rawM3u8 = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
                 
-                // Le decimos al reproductor de React que NO vaya a Angelthump directamente,
-                // sino que use nuestro proxy GET usando la nueva variable de entorno API_BASE
+                // Usamos nuestro proxy GET usando API_BASE
                 const m3u8Url = `${API_BASE}/angelthump?url=${encodeURIComponent(rawM3u8)}`;
 
                 console.log("🔗 [DEBUG] URL del vídeo pasando por proxy:", m3u8Url);
 
-                // Aquí ya inicializas HLS.js con la nueva 'm3u8Url'
                 if (!window.Hls) {
                     await new Promise((resolve, reject) => {
                         const script = document.createElement('script');
@@ -346,24 +288,6 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
 };
 
 // --- UTILIDADES ---
-const parseCSV = (text) => {
-  const rows = [];
-  let row = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    if (char === '"' && text[i + 1] === '"') { current += '"'; i++; }
-    else if (char === '"') { inQuotes = !inQuotes; }
-    else if (char === ',' && !inQuotes) { row.push(current); current = ''; }
-    else if (char === '\n' && !inQuotes) { row.push(current); rows.push(row); row = []; current = ''; }
-    else if (char !== '\r') { current += char; }
-  }
-  if (current !== '' || text[text.length - 1] === ',') row.push(current);
-  if (row.length > 0) rows.push(row);
-  return rows;
-};
-
 const formatVideoQuality = (raw) => {
   if (!raw) return 'SD';
   const s = raw.toLowerCase();
@@ -636,7 +560,7 @@ export default function App() {
   const [streamSid, setStreamSid] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [copiedPass, setCopiedPass] = useState(false);
-  const [usePatreon, setUsePatreon] = useState(false); // <-- NUEVO: Toggle de Servidor
+  const [usePatreon, setUsePatreon] = useState(false);
   
   const [visibleCount, setVisibleCount] = useState(100);
   const [sortBy, setSortBy] = useState('default');
@@ -663,7 +587,7 @@ export default function App() {
   // --- CAMBIO DE IDIOMA ---
   useEffect(() => {
      localStorage.setItem('elpepestreams_lang', appLang);
-     setSelectedCategory(null); // Cerramos cualquier categoría abierta para forzar el refresco de textos en el menú principal
+     setSelectedCategory(null);
      if (hasFetchedRef.current && (activeTab === 'inicio' || activeTab === 'pelis')) {
         setLoading(true);
         fetchContent(appLang);
@@ -717,7 +641,7 @@ export default function App() {
     }
   }, [activeTab, selectedItem, searchQuery, selectedCategory]);
 
-  // --- MOTOR DE AUTENTICACIÓN MEJORADO ---
+  // --- MOTOR DE AUTENTICACIÓN ---
   useEffect(() => {
     const savedPassword = sessionStorage.getItem('stream_password');
     const savedSid = sessionStorage.getItem('stream_sid');
@@ -730,7 +654,7 @@ export default function App() {
         setStreamPassword(savedPassword);
         if (savedSid) {
             setStreamSid(savedSid);
-            setUsePatreon(true); // Si entra con SID, activamos Patreon por defecto
+            setUsePatreon(true); 
         } else {
             setUsePatreon(false);
         }
@@ -749,7 +673,6 @@ export default function App() {
         setIsVerifying(true);
         setStreamPassword(t.verificando);
         
-        // Llamada con API_BASE a la nueva ruta
         fetch(`${API_BASE}/verificar?code=${code}`)
             .then(async res => {
                 if (!res.ok) {
@@ -866,73 +789,13 @@ export default function App() {
     }).join(', ');
   };
 
-  const fetchTMDB = async (title, year, langToFetch) => {
-    try {
-      let cleanTitle = title.replace(/\[.*?\]/g, ' ').replace(/\(.*?\)/g, ' ').replace(/[\[\]\(\)]/g, '').replace(/!/g, '').replace(/\s1$/, '').trim();
-      const query = encodeURIComponent(cleanTitle);
-      const cleanYear = year ? year.toString().match(/\d{4}/)?.[0] : '';
-      
-      const tmdbLangMap = { 'es': 'es-ES', 'ca': 'ca-ES', 'gl': 'gl-ES', 'eu': 'eu-ES' };
-      const apiLang = tmdbLangMap[langToFetch] || 'es-ES';
-
-      let searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}&language=es-ES&primary_release_year=${cleanYear || ''}`);
-      let data = await searchRes.json();
-      
-      if ((!data.results || data.results.length === 0) && cleanYear) {
-         searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}&language=es-ES`);
-         data = await searchRes.json();
-      }
-      if ((!data.results || data.results.length === 0) && cleanTitle.match(/[:\-]/)) {
-         const shortTitle = cleanTitle.split(/[:\-]/)[0].trim();
-         searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(shortTitle)}&language=es-ES&primary_release_year=${cleanYear || ''}`);
-         data = await searchRes.json();
-      }
-      
-      if (data.results?.[0]) {
-        const tmdbId = data.results[0].id;
-        
-        let detailRes = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_API_KEY}&language=${apiLang}`);
-        let movie = await detailRes.json();
-
-        let fallbackRes = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_API_KEY}&language=es-ES`);
-        let movieEs = await fallbackRes.json();
-
-        if (!movie.overview && langToFetch !== 'es') {
-             movie.overview = movieEs.overview;
-             movie.title = movieEs.title;
-             movie.poster_path = movieEs.poster_path;
-             movie.backdrop_path = movieEs.backdrop_path;
-        } else {
-             if (!movie.poster_path) movie.poster_path = movieEs.poster_path;
-             if (!movie.backdrop_path) movie.backdrop_path = movieEs.backdrop_path;
-        }
-
-        const rawGenres = movie.genres?.length > 0 ? movie.genres : movieEs.genres;
-        const translatedGenres = rawGenres?.map(g => {
-            return GENRE_TRANSLATIONS[g.name]?.[langToFetch] || GENRE_TRANSLATIONS[g.name]?.['es'] || g.name;
-        }) || [];
-        
-        return {
-          tmdbTitle: movie.title, 
-          overview: movie.overview,
-          poster: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
-          backdrop: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
-          year: movie.release_date?.split('-')[0],
-          genres: translatedGenres,
-          collection: movie.belongs_to_collection ? { id: movie.belongs_to_collection.id, name: movie.belongs_to_collection.name, poster: movie.belongs_to_collection.poster_path ? `https://image.tmdb.org/t/p/w500${movie.belongs_to_collection.poster_path}` : null, backdrop: movie.belongs_to_collection.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.belongs_to_collection.backdrop_path}` : null } : null,
-          rating: movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'
-        };
-      }
-    } catch (e) { console.warn("TMDB Error:", e); }
-    return null;
-  };
-
+  // --- MOTOR OPTIMIZADO DE DESCARGA DE DATOS ---
   const fetchContent = async (currentLang) => {
     try {
       const forceRefresh = initParams.refresh;
-
       const cacheKeyName = `plex_library_full_cache_${currentLang}`;
       const cachedRaw = localStorage.getItem(cacheKeyName);
+      
       let existingItemsMap = new Map();
       if (cachedRaw && !forceRefresh) {
           try {
@@ -944,81 +807,50 @@ export default function App() {
           } catch(e) {}
       }
 
-      const response = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`);
-      const csvText = await response.text();
-      const parsedData = parseCSV(csvText);
+      // 1. Descargamos el CSV procesado desde nuestro backend en Cloudflare (cacheado por 1 hora)
+      const res = await fetch(`${API_BASE}/library`);
+      if (!res.ok) throw new Error("Fallo al contactar con la librería");
+      const rawRows = await res.json();
       
-      const headerRowIdx = parsedData.findIndex(row => row.some(c => typeof c === 'string' && (c.toLowerCase().includes('título') || c.toLowerCase().includes('title'))));
-      const validHeaderIdx = headerRowIdx !== -1 ? headerRowIdx : 0;
-      
-      const headers = parsedData[validHeaderIdx].map(h => (h || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
-      const getIdx = (keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
-      
-      const idxTitle = getIdx(['titulo', 'title']);
-      const idxYear = getIdx(['ano', 'year', 'año']);
-      const idxLang = getIdx(['idioma', 'lenguaje']);
-      const idxQual = getIdx(['calidad']);
-      const idxGen  = getIdx(['genero', 'género']);
-      
-      let idxLink = getIdx(['lnkf']);
-      if (idxLink === -1) {
-          idxLink = getIdx(['link final', 'url final', 'descarga']);
-      }
-
-      const rawRows = parsedData.slice(validHeaderIdx + 1).filter(r => r[idxTitle]);
       const chunkSize = 25; 
       const enriched = [];
       const translatedNoDesc = UI_TRANSLATIONS[currentLang].sin_descripcion;
       
+      // 2. Por cada fila del CSV, comprobamos si la tenemos en LocalStorage. Si no, preguntamos a nuestro backend de TMDB.
       for (let i = 0; i < rawRows.length; i += chunkSize) {
         const chunk = rawRows.slice(i, i + chunkSize);
         const chunkEnriched = await Promise.all(chunk.map(async (row, idx) => {
-          const title = row[idxTitle];
-          const year = row[idxYear] || '?';
-          const cacheKey = `${title.toLowerCase()}_${year}`;
           
-          let rawLink = '';
-          if (idxLink !== -1 && row[idxLink] && typeof row[idxLink] === 'string' && row[idxLink].trim().includes('http')) {
-              rawLink = row[idxLink]; 
-          } else {
-              const cellHttp = [...row].reverse().find(c => c && typeof c === 'string' && (c.trim().includes('http') || c.trim().includes('www.')));
-              if (cellHttp) rawLink = cellHttp;
-          }
-          
-          let finalLink = rawLink.trim();
-          if (!finalLink || finalLink.toLowerCase() === 'link' || finalLink.toLowerCase() === 'lnkf') finalLink = '#';
-          else if (finalLink !== '#' && !finalLink.startsWith('http')) finalLink = 'https://' + finalLink;
-
-          const newQuality = formatVideoQuality(idxQual !== -1 ? row[idxQual] : '');
-          const newLang = idxLang !== -1 ? translateLangs(row[idxLang], currentLang) : 'N/A';
-          const newGenresCsv = (idxGen !== -1 && row[idxGen]) ? [GENRE_TRANSLATIONS[row[idxGen]]?.[currentLang] || row[idxGen]] : [GENRE_TRANSLATIONS['Otros']?.[currentLang] || "Otros"];
+          const cacheKey = `${row.title.toLowerCase()}_${row.year}`;
+          const newQuality = formatVideoQuality(row.quality);
+          const newLang = translateLangs(row.language, currentLang);
+          const fallbackGenres = row.rawGenre ? [row.rawGenre] : ["Otros"];
 
           if (existingItemsMap.has(cacheKey)) {
               const cachedItem = existingItemsMap.get(cacheKey);
-              return {
-                  ...cachedItem,
-                  id: `item-${i + idx}`,
-                  videoQuality: newQuality,
-                  language: newLang,
-                  link: finalLink
-              };
+              return { ...cachedItem, id: `item-${i + idx}`, videoQuality: newQuality, language: newLang, link: row.link };
           }
 
-          const tmdb = await fetchTMDB(title, year, currentLang);
+          // Pasamos el título y año a nuestro proxy en Cloudflare, el cual también guarda la respuesta en caché
+          let tmdb = null;
+          try {
+              const tmdbRes = await fetch(`${API_BASE}/tmdb?title=${encodeURIComponent(row.title)}&year=${encodeURIComponent(row.year)}&lang=${currentLang}`);
+              if (tmdbRes.ok) tmdb = await tmdbRes.json();
+          } catch (e) { console.warn("TMDB Proxy Error:", e); }
           
           return {
             id: `item-${i + idx}`,
             isSaga: false,
-            title: title, 
-            displayTitle: tmdb?.tmdbTitle || title, 
-            year: tmdb?.year || year,
+            title: row.title, 
+            displayTitle: tmdb?.tmdbTitle || row.title, 
+            year: tmdb?.year || row.year,
             description: tmdb?.overview || translatedNoDesc,
-            image: tmdb?.poster || `https://via.placeholder.com/500x750/1a1a1c/e5a00d?text=${encodeURIComponent(title)}`,
+            image: tmdb?.poster || `https://via.placeholder.com/500x750/1a1a1c/e5a00d?text=${encodeURIComponent(row.title)}`,
             backdrop: tmdb?.backdrop || tmdb?.poster,
             videoQuality: newQuality,
             language: newLang,
-            link: finalLink,
-            genres: tmdb?.genres?.length ? tmdb.genres : newGenresCsv,
+            link: row.link,
+            genres: tmdb?.genres?.length ? tmdb.genres : fallbackGenres,
             collection: tmdb?.collection || null,
             rating: tmdb?.rating || 'N/A'
           };
@@ -1506,6 +1338,7 @@ export default function App() {
                             {t.desc_directo}
                         </p>
                         
+                        {/* URL Actualizada al dominio .pages.dev */}
                         <a 
                            href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify"
                            className={`font-bold py-2.5 px-6 rounded-md transition-all w-full shadow-lg hover:scale-105 flex items-center justify-center gap-2 text-sm shrink-0 ${
