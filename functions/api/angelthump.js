@@ -8,7 +8,6 @@ export async function onRequest(context) {
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
     };
 
-    // 1. Responder rápido a las peticiones OPTIONS del navegador (Pre-flight CORS)
     if (request.method === "OPTIONS") {
         return new Response("OK", { status: 200, headers: corsHeaders });
     }
@@ -20,162 +19,119 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // PROXY GET: PUENTE TOTAL PARA .M3U8 Y FRAGMENTOS BINARIOS
+    // PROXY GET: PUENTE TOTAL PARA .M3U8 Y FRAGMENTOS DE VIDEO
     // ==========================================
     if (request.method === "GET") {
         const targetUrl = url.searchParams.get('url');
         if (!targetUrl) return new Response(JSON.stringify({ error: "Falta la URL" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+        // Extraemos las credenciales PRO que nos manda el App.jsx en la URL
+        const sid = url.searchParams.get('sid');
+        const identifier = url.searchParams.get('identifier');
+
+        const proxyHeaders = {
+            "accept": "*/*",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Origin": "https://angelthump.com",
+            "Referer": "https://angelthump.com/"
+        };
+
+        // ¡AQUÍ ESTÁ LA MAGIA PRO! Si es Patreon, Angelthump exige estas cabeceras para descargar el video
+        if (sid) proxyHeaders["Cookie"] = `angelthump.sid=${sid}`;
+        if (identifier) proxyHeaders["identifier"] = identifier;
+
         try {
             const res = await fetch(targetUrl, {
                 method: 'GET',
+                headers: proxyHeaders
+            });
+
+            const contentType = res.headers.get("content-type");
+            let body = await res.arrayBuffer(); // Binario para no corromper el video
+            
+            // Si es la lista de reproducción (m3u8), reescribimos los enlaces internos
+            if (contentType && (contentType.includes("application/vnd.apple.mpegurl") || contentType.includes("application/x-mpegURL"))) {
+                let text = new TextDecoder("utf-8").decode(body);
+                const baseUrl = new URL(targetUrl);
+                const basePath = baseUrl.origin + baseUrl.pathname.substring(0, baseUrl.pathname.lastIndexOf('/') + 1);
+
+                const lines = text.split('\n');
+                for (let i = 0; i < lines.length; i++) {
+                    let line = lines[i].trim();
+                    if (line && !line.startsWith('#')) {
+                        let absoluteUrl = line.startsWith('http') ? line : basePath + line;
+                        
+                        // Redirigir el fragmento a este mismo proxy
+                        let proxyUrl = `${url.origin}${url.pathname}?url=${encodeURIComponent(absoluteUrl)}`;
+                        
+                        // Propagar las credenciales PRO al siguiente fragmento
+                        if (sid) proxyUrl += `&sid=${encodeURIComponent(sid)}`;
+                        if (identifier) proxyUrl += `&identifier=${encodeURIComponent(identifier)}`;
+                        
+                        lines[i] = proxyUrl;
+                    }
+                }
+                text = lines.join('\n');
+                body = new TextEncoder().encode(text);
+            }
+
+            return new Response(body, {
+                status: res.status,
                 headers: {
-                    "accept": "*/*",
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
-                    "Referer": "https://player.angelthump.com/",
-                    "Origin": "https://player.angelthump.com"
+                    ...corsHeaders,
+                    "Content-Type": contentType || "application/octet-stream",
+                    "Cache-Control": "no-cache"
                 }
             });
-            
-            const contentType = res.headers.get('content-type') || '';
-            const isTextFile = contentType.includes('text') || contentType.includes('mpegurl') || targetUrl.includes('.m3u8');
-            
-            // Usamos la ruta dinámica con la que nos llamaron para los reemplazos (sea /angelthump o /.netlify/functions/angelthump)
-            const currentProxyPath = url.pathname;
-            
-            // Si es la lista de reproducción (texto)
-            if (isTextFile) {
-                let text = await res.text();
-                const finalUrl = res.url || targetUrl; 
-                const baseUrl = finalUrl.substring(0, finalUrl.lastIndexOf('/') + 1);
-                
-                text = text.split('\n').map(line => {
-                    const trimmed = line.trim();
-                    if (!trimmed) return line;
-
-                    // Reemplazamos URIs de inicialización (ej: #EXT-X-MAP:URI="init.mp4")
-                    if (trimmed.startsWith('#')) {
-                        if (trimmed.includes('URI="')) {
-                            return trimmed.replace(/URI="([^"]+)"/g, (match, uri) => {
-                                if (uri.startsWith('data:')) return match;
-                                const absoluteUrl = uri.startsWith('http') ? uri : baseUrl + uri;
-                                return `URI="${currentProxyPath}?url=${encodeURIComponent(absoluteUrl)}"`;
-                            });
-                        }
-                        return line;
-                    }
-                    
-                    // Reemplazamos enlaces directos a fragmentos .m4s / .ts
-                    const absoluteUrl = trimmed.startsWith('http') ? trimmed : baseUrl + trimmed;
-                    return `${currentProxyPath}?url=${encodeURIComponent(absoluteUrl)}`;
-                }).join('\n');
-
-                return new Response(text, { 
-                    status: 200, 
-                    headers: { ...corsHeaders, "Content-Type": "application/vnd.apple.mpegurl" } 
-                });
-            } 
-            // Si es vídeo binario, Cloudflare lo transfiere mágicamente mediante res.body (Stream)
-            else {
-                return new Response(res.body, {
-                    status: res.status,
-                    headers: { 
-                        ...corsHeaders, 
-                        "Content-Type": contentType || "video/iso.segment",
-                        "Cache-Control": "public, max-age=3600"
-                    }
-                });
-            }
-        } catch (e) {
-            return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        } catch (err) {
+            return new Response(JSON.stringify({ error: "Proxy Error: " + err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
     }
 
     // ==========================================
-    // FLUJO POST: OBTENER TOKENS DE VÍDEO
+    // POST: OBTENER EL TOKEN DEL DIRECTO
     // ==========================================
-    try {
-        let body = {};
+    if (request.method === "POST") {
         try {
-            body = await request.json();
-        } catch (e) { /* cuerpo vacío */ }
+            const body = await request.json();
+            const channel = body.channel;
+            const usePatreon = body.patreon === true;
+            const password = body.password;
+            
+            let sid = body.sid;
+            // Aceptamos el identifier tanto en el JSON como en las cabeceras
+            let identifier = body.identifier || request.headers.get('identifier');
 
-        const channel = body.channel || 'elpintaunas';
-        const patreon = body.patreon === true;
-        const password = body.password || ''; 
-        let sid = body.sid || '';
-        let identifierParam = body.identifier || null;
-
-        if (sid) sid = sid.replace(/['"]+/g, '').replace(/^angelthump\.sid=/, '').trim();
-
-        const baseHeaders = { 
-            "accept": "*/*",
-            "accept-language": "es-ES,es;q=0.9",
-            "content-type": "application/json",
-            "Referer": "https://player.angelthump.com/",
-            "Origin": "https://player.angelthump.com",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
-        };
-
-        // Identificador dinámico
-        let IDENTIFIER = identifierParam || "SwnpX0RnA99YdRj0SPqs"; 
-        if (!identifierParam) {
-            try {
-                const playerRes = await fetch(`https://player.angelthump.com/?channel=${channel}`, { headers: baseHeaders });
-                const playerHtml = await playerRes.text();
-                const match = playerHtml.match(/identifier\s*:\s*['"]([^'"]+)['"]/);
-                if (match && match[1]) {
-                    IDENTIFIER = match[1];
-                }
-            } catch (e) {
-                console.log("Error obteniendo identifier dinámico, usando fallback.");
+            if (!channel) {
+                return new Response(JSON.stringify({ error: "Falta el canal" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
             }
-        }
 
-        if (patreon) {
-            // === FLUJO 1: PREMIUM (PATREON) ===
-            if (!sid) return new Response(JSON.stringify({ error: "Falta la cookie de Patreon (SID)." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
-            const tokenHeaders = { 
-                ...baseHeaders, 
-                "identifier": IDENTIFIER, 
-                "Cookie": `angelthump.sid=${sid}` 
+            const baseHeaders = {
+                "Accept": "application/json, text/plain, */*",
+                "Content-Type": "application/json",
+                "Origin": "https://angelthump.com",
+                "Referer": "https://angelthump.com/",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             };
 
-            const vigorRes = await fetch(`https://vigor.angelthump.com/${channel}/token`, {
-                method: "POST",
-                headers: tokenHeaders,
-                body: JSON.stringify({ patreon: true })
-            });
-
-            const data = await vigorRes.json();
-            
-            if (!vigorRes.ok || !data.token) {
-                 return new Response(JSON.stringify({ error: data.message || "Cookie Premium rechazada por Angelthump." }), { status: vigorRes.status > 200 ? vigorRes.status : 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-            }
-
-            return new Response(JSON.stringify(data), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
-        } else {
-            // === FLUJO 2: NORMAL (FREE) ===
             let sessionCookie = "";
 
-            if (password) {
-                const userRes = await fetch(`https://api.angelthump.com/v3/users?username=${channel}`, { headers: baseHeaders });
-                const userData = await userRes.json();
-                let userId = "330abf9e-0b6c-4545-b0b1-6e57ce2a79a5"; 
-                if (Array.isArray(userData) && userData.length > 0) userId = userData[0].id;
-                else if (userData.data && Array.isArray(userData.data) && userData.data.length > 0) userId = userData.data[0].id;
-
-                const passHeaders = { ...baseHeaders }; 
-                const passRes = await fetch(`https://api.angelthump.com/v3/streams/password`, {
+            if (usePatreon) {
+                // --- MODO PREMIUM (PATREON) ---
+                if (!sid || !identifier) {
+                    return new Response(JSON.stringify({ error: "Faltan credenciales Patreon (sid o identifier no encontrados)." }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+                }
+                sessionCookie = `angelthump.sid=${sid}`;
+            } else {
+                // --- MODO GRATUITO (CONTRASEÑA) ---
+                const passRes = await fetch(`https://vigor.angelthump.com/${channel}`, {
                     method: "POST",
-                    headers: passHeaders,
-                    body: JSON.stringify({ user_id: userId, password: password })
+                    headers: baseHeaders,
+                    body: JSON.stringify({ password: password })
                 });
 
-                const passData = await passRes.json();
-                if (!passRes.ok || passData.error === true) {
+                if (!passRes.ok) {
+                    const passData = await passRes.json().catch(() => ({}));
                     return new Response(JSON.stringify({ error: passData.message || "Contraseña incorrecta." }), { status: passRes.status > 200 ? passRes.status : 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
                 }
 
@@ -185,25 +141,28 @@ export async function onRequest(context) {
                 }
             }
 
-            const tokenHeaders = { ...baseHeaders, "identifier": IDENTIFIER };
+            // --- FETCH FINAL DEL TOKEN ---
+            const tokenHeaders = { ...baseHeaders };
             if (sessionCookie) tokenHeaders["Cookie"] = sessionCookie;
+            if (identifier) tokenHeaders["identifier"] = identifier;
 
             const tokenRes = await fetch(`https://vigor.angelthump.com/${channel}/token`, {
                 method: "POST",
                 headers: tokenHeaders,
-                body: JSON.stringify({ patreon: false })
+                // AQUÍ ESTABA EL OTRO ERROR: Estaba hardcodeado a { patreon: false }. Ahora es dinámico.
+                body: JSON.stringify({ patreon: usePatreon }) 
             });
 
-            const tokenData = await tokenRes.json();
+            const tokenData = await tokenRes.json().catch(() => ({}));
             
             if (!tokenRes.ok || !tokenData.token) {
-                 return new Response(JSON.stringify({ error: tokenData.message || "Fallo al canjear la sesión gratuita." }), { status: tokenRes.status > 200 ? tokenRes.status : 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+                 return new Response(JSON.stringify({ error: tokenData.message || "Identifier is not recognized o sesión inválida." }), { status: tokenRes.status > 200 ? tokenRes.status : 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
             }
 
             return new Response(JSON.stringify(tokenData), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
 
-    } catch (error) {
-        return new Response(JSON.stringify({ error: "Error interno: " + error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        } catch (error) {
+            return new Response(JSON.stringify({ error: "Error interno: " + error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
     }
 }
