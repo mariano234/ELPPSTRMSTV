@@ -8,7 +8,10 @@ const CACHE_VERSION = "v2_multilang";
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; 
 const STREAM_CHANNEL = "elpintaunas"; 
 
-// --- DICCIONARIOS Y TRADUCCIONES ---
+// --- API BACKEND (Cloudflare) ---
+// Como tus funciones están en functions/api/, la ruta base es /api
+const API_BASE = "/api"; 
+
 const LANGUAGE_MAP = {
   'es': 'Español', 'es-es': 'Español (España)', 'es-mx': 'Español (Latino)',
   'en': 'Inglés', 'en-us': 'Inglés (EEUU)', 'en-gb': 'Inglés (Reino Unido)',
@@ -17,6 +20,7 @@ const LANGUAGE_MAP = {
   'fr': 'Francés', 'it': 'Italiano', 'de': 'Alemán', 'ja': 'Japonés', 'jp': 'Japonés', 'ko': 'Coreano', 'pt': 'Portugués'
 };
 
+// --- DICCIONARIO DE GÉNEROS ---
 const GENRE_TRANSLATIONS = {
     'Acción': { ca: 'Acció', gl: 'Acción', eu: 'Ekintza', es: 'Acción' },
     'Action': { ca: 'Acció', gl: 'Acción', eu: 'Ekintza', es: 'Acción' },
@@ -193,6 +197,20 @@ const UI_TRANSLATIONS = {
   }
 };
 
+const extractIdentifier = (sid) => {
+  if (!sid) return null;
+  let str = sid;
+  if (str.startsWith('s%3A')) str = decodeURIComponent(str);
+  if (str.startsWith('s:')) return str.substring(2).split('.')[0];
+  if (str.startsWith('ey')) {
+      try {
+          const decoded = JSON.parse(atob(str.split('.')[1]));
+          return decoded.id || decoded.userId || decoded.sub || str;
+      } catch (e) { return str; }
+  }
+  return str;
+};
+
 // --- COMPONENTE REPRODUCTOR NATIVO HLS ---
 const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t }) => {
     const containerRef = useRef(null);
@@ -212,7 +230,8 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                 const cleanSid = streamSid ? streamSid.replace('angelthump.sid=', '') : '';
                 const cleanPass = streamPassword ? streamPassword.trim() : '';
                 const isValidPass = cleanPass && cleanPass !== t.sin_pass && !cleanPass.includes('••••') && !cleanPass.includes('❌') && !cleanPass.includes('Verificando');
-                
+                const identifier = extractIdentifier(cleanSid);
+
                 const payload = {
                     channel: channel,
                     patreon: usePatreon
@@ -220,11 +239,13 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                 
                 if (usePatreon && cleanSid) {
                     payload.sid = cleanSid;
+                    if (identifier) payload.identifier = identifier;
                 } else if (!usePatreon && isValidPass) {
                     payload.password = cleanPass;
                 }
 
-                const res = await fetch(`/.netlify/functions/angelthump`, {
+                // AHORA SÍ: Utilizamos la ruta con /api porque tu estructura es functions/api/
+                const res = await fetch(`${API_BASE}/angelthump`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -236,7 +257,13 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                 if (!res.ok) throw new Error(data.error || "Error al verificar las credenciales");
                 if (!data.token) throw new Error("Angelthump no devolvió ningún token válido.");
 
-                const m3u8Url = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
+                const rawM3u8 = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
+                
+                // AHORA SÍ: Utilizamos la ruta con /api para el proxy del vídeo también
+                let m3u8Url = `${API_BASE}/angelthump?url=${encodeURIComponent(rawM3u8)}`;
+                if (usePatreon && identifier) {
+                    m3u8Url += `&identifier=${encodeURIComponent(identifier)}&sid=${encodeURIComponent(cleanSid)}`;
+                }
 
                 if (!isMounted) return;
 
@@ -620,6 +647,8 @@ const getInitialURLParams = () => {
     };
 };
 
+let isFetchingDiscord = false;
+
 export default function App() {
   const initParams = useMemo(getInitialURLParams, []);
 
@@ -706,7 +735,6 @@ export default function App() {
     const url = new URL(window.location);
     let changed = false;
 
-    // Eliminamos el código de la URL para que quede limpia
     if (url.searchParams.has('code')) {
         url.searchParams.delete('code');
         changed = true;
@@ -749,9 +777,7 @@ export default function App() {
     }
   }, [activeTab, selectedItem, searchQuery, selectedCategory]);
 
-  // --- MOTOR DE AUTENTICACIÓN MEJORADO Y BLINDADO ---
-  const hasProcessedCode = useRef(false); // Cerrojo anti-doble-render
-
+  // --- MOTOR DE AUTENTICACIÓN MEJORADO ---
   useEffect(() => {
     const savedPassword = sessionStorage.getItem('stream_password');
     const savedSid = sessionStorage.getItem('stream_sid');
@@ -776,13 +802,15 @@ export default function App() {
 
     const code = initParams.code;
     
-    // Si hay código y NO lo hemos procesado en esta sesión:
-    if (code && !hasProcessedCode.current) {
-        hasProcessedCode.current = true; // Echamos el cerrojo
+    if (code) {
+        if (isFetchingDiscord) return;
+        isFetchingDiscord = true;
+
         setIsVerifying(true);
-        setStreamPassword("Verificando...");
+        setStreamPassword(t.verificando);
         
-        fetch(`/.netlify/functions/verificar?code=${code}`)
+        // AHORA SÍ: Usamos la ruta con /api
+        fetch(`${API_BASE}/verificar?code=${code}`)
             .then(async res => {
                 if (!res.ok) {
                     const text = await res.text();
@@ -793,7 +821,7 @@ export default function App() {
             .then(data => {
                 if(data.success) {
                     if (!data.password || data.password.trim() === "") {
-                        setStreamPassword("❌ Error de permisos");
+                        setStreamPassword("❌ Activa 'Message Content Intent' en el Bot");
                     } else {
                         let cleanText = data.password.replace(/[*`]/g, '').trim();
                         cleanText = cleanText.replace(/^['"]|['"]$/g, '').trim();
@@ -829,9 +857,8 @@ export default function App() {
                             }
                         }
 
-                        // Guardar en sesión
-                        setStreamPassword(finalPass || "Sin Contraseña");
-                        sessionStorage.setItem('stream_password', finalPass || "Sin Contraseña");
+                        setStreamPassword(finalPass || t.sin_pass);
+                        sessionStorage.setItem('stream_password', finalPass || t.sin_pass);
                         sessionStorage.setItem('stream_auth_time', Date.now().toString());
                         
                         if (finalSid) {
@@ -854,9 +881,10 @@ export default function App() {
             })
             .finally(() => {
                 setIsVerifying(false);
+                isFetchingDiscord = false;
             });
     }
-  }, []); // <-- Array de dependencias vacío para que esto se lea sólo una vez al montar
+  }, [initParams.code, t.verificando, t.sin_pass]);
 
   useEffect(() => {
       if (activeTab === 'directos' && !isVerifying) {
@@ -1483,7 +1511,6 @@ export default function App() {
           {activeTab === 'directos' && (
             <div className="pt-24 md:pt-[5.5rem] px-4 md:px-12 flex flex-col lg:flex-row gap-4 md:gap-6 h-[calc(100vh-1rem)] pb-4 md:pb-6 lg:pb-8 animate-in fade-in duration-500 w-full">
                 
-                {/* REPRODUCTOR INTELIGENTE */}
                 <div className="flex-1 bg-black rounded-xl overflow-hidden border border-white/10 relative shadow-2xl min-h-[40vh] lg:min-h-0 lg:h-full flex items-center justify-center group/player">
                     <div className="absolute inset-0 w-full h-full">
                         {isLogged ? (
@@ -1499,7 +1526,6 @@ export default function App() {
                         )}
                     </div>
                     
-                    {/* Indicador visual de servidor en la esquina del reproductor */}
                     {isLogged && (
                         <div className="absolute top-4 left-4 z-30 pointer-events-none opacity-0 group-hover/player:opacity-100 transition-opacity">
                             <span className="bg-black/60 backdrop-blur-md border border-white/10 text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-2 uppercase tracking-widest shadow-lg">
@@ -1510,7 +1536,6 @@ export default function App() {
                     )}
                 </div>
                 
-                {/* SIDEBAR DERECHO */}
                 <div className="w-full lg:w-[350px] xl:w-[400px] bg-[#1a1a1c] rounded-xl overflow-hidden border border-white/5 flex flex-col shadow-2xl shrink-0 h-auto lg:h-full overflow-y-auto">
                     <div className="bg-[#141414] p-3 border-b border-white/5 flex justify-center items-center shrink-0">
                        <span className="font-bold text-white text-sm flex items-center gap-2">
@@ -1522,7 +1547,6 @@ export default function App() {
                     <div className="flex flex-col flex-1 p-4 md:p-6 justify-start items-center text-center">
                         {isLogged ? (
                             <div className="flex flex-col items-center w-full h-full animate-in fade-in zoom-in duration-300">
-                                {/* Estado VIP */}
                                 <div className="bg-green-500/10 p-4 rounded-full mb-4 border border-green-500/30 shadow-[0_0_30px_rgba(34,197,94,0.15)] shrink-0">
                                     <CheckCircle size={40} className="text-green-500" />
                                 </div>
@@ -1531,7 +1555,6 @@ export default function App() {
                                     {t.credenciales_inyectadas}
                                 </p>
 
-                                {/* Opciones de Servidor */}
                                 <div className="w-full bg-black/40 border border-white/10 rounded-xl p-4 md:p-5 mb-6 shadow-inner shrink-0">
                                     <span className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-widest font-bold flex items-center justify-center gap-2 mb-4">
                                         <Server size={14} className="text-[#e5a00d]" /> {t.selecciona_servidor}
@@ -1540,7 +1563,7 @@ export default function App() {
                                     <div className="flex bg-[#141414] rounded-lg p-1.5 border border-white/5 relative">
                                         <button 
                                             onClick={() => setUsePatreon(true)}
-                                            disabled={!streamSid} // Deshabilita Patreon si no hay token SID
+                                            disabled={!streamSid} 
                                             className={`flex-1 py-2.5 text-xs rounded-md transition-all duration-300 z-10 ${usePatreon ? 'bg-[#e5a00d] text-black font-black shadow-[0_2px_10px_rgba(229,160,13,0.3)]' : 'text-gray-400 hover:text-white font-semibold'} ${!streamSid ? 'opacity-30 cursor-not-allowed' : ''}`}
                                         >
                                             {t.serv_patreon}
@@ -1560,7 +1583,6 @@ export default function App() {
                                     )}
                                 </div>
 
-                                {/* Botón Refrescar (Secundario) */}
                                 <div className="mt-auto w-full pt-4">
                                     <a 
                                         href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify"
@@ -1572,7 +1594,6 @@ export default function App() {
                             </div>
                         ) : (
                             <div className="flex flex-col items-center w-full h-full animate-in fade-in duration-300">
-                                {/* Estado NO Logueado (Discord) */}
                                 <div className="bg-[#5865F2]/10 p-4 rounded-full mb-4 border border-[#5865F2]/30 shrink-0">
                                     <svg className="w-10 h-10 text-[#5865F2]" fill="currentColor" viewBox="0 0 127.14 96.36">
                                         <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77.7,77.7,0,0,0,6.89,11.1,105.25,105.25,0,0,0,32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.56,65.3c-5.36,0-9.8-4.83-9.8-10.74s4.33-10.74,9.8-10.74,9.84,4.83,9.8,10.74C52.4,60.47,48,65.3,42.56,65.3Zm42,0c-5.36,0-9.8-4.83-9.8-10.74s4.33-10.74,9.8-10.74,9.84,4.83,9.8,10.74C94.4,60.47,90,65.3,84.56,65.3Z"/>
