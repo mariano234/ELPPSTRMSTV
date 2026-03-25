@@ -9,7 +9,6 @@ const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 const STREAM_CHANNEL = "elpintaunas"; 
 
 // --- API BACKEND (Cloudflare) ---
-// Como tus funciones están en functions/api/, la ruta base es /api
 const API_BASE = "/api"; 
 
 const LANGUAGE_MAP = {
@@ -197,6 +196,7 @@ const UI_TRANSLATIONS = {
   }
 };
 
+// EXTRACCIÓN DEL IDENTIFIER (Funciona a la perfección)
 const extractIdentifier = (sid) => {
   if (!sid) return null;
   let str = sid;
@@ -237,17 +237,24 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                     patreon: usePatreon
                 };
                 
+                // ¡AQUÍ ESTÁ LA MAGIA! Tu angelthump.js necesita recibir la cabecera 'identifier'
+                const requestHeaders = { 
+                    'Content-Type': 'application/json' 
+                };
+                
                 if (usePatreon && cleanSid) {
                     payload.sid = cleanSid;
-                    if (identifier) payload.identifier = identifier;
+                    if (identifier) {
+                        payload.identifier = identifier;
+                        requestHeaders['identifier'] = identifier; // INYECTADO COMO HEADER
+                    }
                 } else if (!usePatreon && isValidPass) {
                     payload.password = cleanPass;
                 }
 
-                // AHORA SÍ: Utilizamos la ruta con /api porque tu estructura es functions/api/
                 const res = await fetch(`${API_BASE}/angelthump`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: requestHeaders,
                     body: JSON.stringify(payload)
                 });
                 
@@ -259,7 +266,6 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
 
                 const rawM3u8 = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
                 
-                // AHORA SÍ: Utilizamos la ruta con /api para el proxy del vídeo también
                 let m3u8Url = `${API_BASE}/angelthump?url=${encodeURIComponent(rawM3u8)}`;
                 if (usePatreon && identifier) {
                     m3u8Url += `&identifier=${encodeURIComponent(identifier)}&sid=${encodeURIComponent(cleanSid)}`;
@@ -809,7 +815,6 @@ export default function App() {
         setIsVerifying(true);
         setStreamPassword(t.verificando);
         
-        // AHORA SÍ: Usamos la ruta con /api
         fetch(`${API_BASE}/verificar?code=${code}`)
             .then(async res => {
                 if (!res.ok) {
@@ -839,6 +844,7 @@ export default function App() {
                                 if (rawSid.includes('angelthump.sid=')) {
                                     rawSid = rawSid.split('angelthump.sid=')[1].trim();
                                 }
+                                if (rawSid) rawSid = rawSid.split(';')[0].trim(); // LIMPIEZA EXTRA DE SEMICOLONS
                                 finalSid = rawSid;
                             }
                         }
@@ -851,6 +857,7 @@ export default function App() {
                                 if (rawSid && rawSid.includes('angelthump.sid=')) {
                                     rawSid = rawSid.split('angelthump.sid=')[1].trim();
                                 }
+                                if (rawSid) rawSid = rawSid.split(';')[0].trim(); // LIMPIEZA EXTRA DE SEMICOLONS
                                 finalSid = rawSid;
                             } else {
                                 finalPass = cleanText.replace(/Contrase.*?:/i, '').trim().replace(/^['"]|['"]$/g, '');
