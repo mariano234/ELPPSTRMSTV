@@ -3,7 +3,7 @@ import { Search, Home, Film, Download, X, Info, ChevronRight, ChevronLeft, Alert
 
 // --- CONFIGURACIÓN ---
 const TMDB_API_KEY = "342815a2b6a677bbc29fd13a6e3c1c3a"; // <-- Tu key de TMDB restaurada
-const CACHE_VERSION = "v4_tmdb_direct"; // Forzamos nueva caché para borrar los fallos anteriores
+const CACHE_VERSION = "v5_tmdb_fallbacks"; // Forzamos nueva caché para borrar los fallos anteriores
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; 
 const STREAM_CHANNEL = "elpintaunas"; 
 const API_BASE = "/api"; 
@@ -860,7 +860,32 @@ export default function App() {
                   // Obtenemos detalles extra (Colecciones, sagas y géneros bien formateados)
                   const detailsUrl = `https://api.themoviedb.org/3/movie/${movie.id}?api_key=${TMDB_API_KEY}&language=${currentLang}`;
                   const detailsRes = await fetch(detailsUrl);
-                  const details = await detailsRes.json();
+                  let details = await detailsRes.json();
+                  
+                  // --- FIX 1: Fallback a Español si falta la descripción o el título ---
+                  if (!details.overview || !details.title) {
+                      try {
+                          const esRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}?api_key=${TMDB_API_KEY}&language=es`);
+                          const esDetails = await esRes.json();
+                          if (!details.overview) details.overview = esDetails.overview;
+                          if (!details.title) details.title = esDetails.title;
+                      } catch (e) { console.warn("Error fallback ES", e); }
+                  }
+
+                  // --- FIX 2: Fallback a idioma original si falta la portada o el fondo ---
+                  if (!details.poster_path || !details.backdrop_path) {
+                      try {
+                          const origRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}?api_key=${TMDB_API_KEY}`);
+                          const origDetails = await origRes.json();
+                          if (!details.poster_path) details.poster_path = origDetails.poster_path;
+                          if (!details.backdrop_path) details.backdrop_path = origDetails.backdrop_path;
+                          
+                          if (details.belongs_to_collection && origDetails.belongs_to_collection) {
+                              if (!details.belongs_to_collection.poster_path) details.belongs_to_collection.poster_path = origDetails.belongs_to_collection.poster_path;
+                              if (!details.belongs_to_collection.backdrop_path) details.belongs_to_collection.backdrop_path = origDetails.belongs_to_collection.backdrop_path;
+                          }
+                      } catch (e) { console.warn("Error fallback Portada", e); }
+                  }
                   
                   tmdb = {
                       tmdbTitle: details.title,
