@@ -39,8 +39,6 @@ export async function onRequest(context) {
             const contentType = res.headers.get("content-type");
             let body = await res.arrayBuffer();
             
-            // Si es la lista m3u8, transformamos las rutas relativas a absolutas.
-            // Esto permite que el navegador descargue los .m4s DIRECTAMENTE de Angelthump, sin gastar tu ancho de banda.
             if (contentType && (contentType.includes("mpegurl") || contentType.includes("text/plain"))) {
                 let text = new TextDecoder("utf-8").decode(body);
                 const baseUrl = new URL(targetUrl);
@@ -70,16 +68,23 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // POST: LOGIN Y OBTENCIÓN DEL TOKEN DEL DIRECTO
+    // POST: OBTENCIÓN DEL TOKEN DEL DIRECTO
     // ==========================================
     if (request.method === "POST") {
         try {
             const body = await request.json();
             const channel = body.channel || 'elpintaunas';
             const usePatreon = body.patreon === true;
-            const password = body.password; // Ej: Elpepe_vxQ
+            const password = body.password;
             
+            let sid = body.sid;
             let identifier = body.identifier || request.headers.get('identifier');
+            
+            // Decodificar el SID por si viene como URL codificada (s%3A en lugar de s:)
+            if (sid && sid.startsWith('s%3A')) {
+                sid = decodeURIComponent(sid);
+            }
+
             if (!identifier) identifier = "SwnpX0RnA99YdRj0SPqs";
 
             const baseHeaders = {
@@ -94,26 +99,13 @@ export async function onRequest(context) {
 
             if (usePatreon) {
                 // --- MODO PREMIUM (PATREON) ---
-                // Hacemos login en tu cuenta maestra para generar un SID fresco y válido.
-                const loginRes = await fetch("https://sso.angelthump.com/login", {
-                    method: "POST",
-                    headers: baseHeaders,
-                    body: JSON.stringify({ username: "elpintaunas", password: "Mariano234" })
-                });
-
-                if (!loginRes.ok) {
-                    return new Response(JSON.stringify({ error: "Fallo al iniciar sesión maestra en SSO." }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+                // Confiamos EXACTAMENTE en el SID que el bot de Discord te ha proporcionado.
+                if (!sid) {
+                    return new Response(JSON.stringify({ error: "Faltan credenciales Patreon (sid no encontrado)." }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
                 }
-
-                // Extraemos el SID generado
-                const setCookieRaw = loginRes.headers.get('set-cookie');
-                if (setCookieRaw) {
-                    const matches = setCookieRaw.match(/angelthump\.sid=[^;]+/g);
-                    sessionCookie = matches && matches.length > 0 ? matches[0] : setCookieRaw.split(';')[0];
-                }
+                sessionCookie = `angelthump.sid=${sid}`;
             } else {
                 // --- MODO GRATUITO (FREE) ---
-                // Usamos la contraseña del directo enviada por el frontend
                 const passRes = await fetch("https://api.angelthump.com/v3/streams/password", {
                     method: "POST",
                     headers: baseHeaders,
