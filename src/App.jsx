@@ -6,8 +6,9 @@ const TMDB_API_KEY = "342815a2b6a677bbc29fd13a6e3c1c3a";
 const SHEET_ID = "104RB6GK9_m_nzIakTU3MJLaDJPwt9fYmfHF3ikyixFE";
 const CACHE_VERSION = "v2_multilang"; 
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; 
-const STREAM_CHANNEL = "elpintaunas"; // Canal definitivo
+const STREAM_CHANNEL = "elpintaunas"; 
 
+// --- DICCIONARIOS Y TRADUCCIONES ---
 const LANGUAGE_MAP = {
   'es': 'Español', 'es-es': 'Español (España)', 'es-mx': 'Español (Latino)',
   'en': 'Inglés', 'en-us': 'Inglés (EEUU)', 'en-gb': 'Inglés (Reino Unido)',
@@ -16,7 +17,6 @@ const LANGUAGE_MAP = {
   'fr': 'Francés', 'it': 'Italiano', 'de': 'Alemán', 'ja': 'Japonés', 'jp': 'Japonés', 'ko': 'Coreano', 'pt': 'Portugués'
 };
 
-// --- DICCIONARIO DE GÉNEROS ---
 const GENRE_TRANSLATIONS = {
     'Acción': { ca: 'Acció', gl: 'Acción', eu: 'Ekintza', es: 'Acción' },
     'Action': { ca: 'Acció', gl: 'Acción', eu: 'Ekintza', es: 'Acción' },
@@ -55,7 +55,6 @@ const GENRE_TRANSLATIONS = {
     'Western': { ca: 'Western', gl: 'Western', eu: 'Western', es: 'Western' }
 };
 
-// --- DICCIONARIO DE IDIOMAS DETALLE ---
 const LANG_TRANSLATIONS = {
     'es': {
         'Español': 'Español', 'Español (España)': 'Español (España)', 'Español (Latino)': 'Español (Latino)',
@@ -83,7 +82,6 @@ const LANG_TRANSLATIONS = {
     }
 };
 
-// --- DICCIONARIO DE INTERFAZ ---
 const UI_TRANSLATIONS = {
   'es': {
     inicio: 'INICIO', pelis: 'PELIS', series: 'SERIES', directos: 'DIRECTOS',
@@ -226,7 +224,6 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                     payload.password = cleanPass;
                 }
 
-                // Usamos el Proxy SOLO para obtener el token. No tocamos el M3U8.
                 const res = await fetch(`/.netlify/functions/angelthump`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -239,12 +236,10 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                 if (!res.ok) throw new Error(data.error || "Error al verificar las credenciales");
                 if (!data.token) throw new Error("Angelthump no devolvió ningún token válido.");
 
-                // URL DIRECTA A ANGELTHUMP (Como lo tenías cuando funcionaba la pantalla negra)
                 const m3u8Url = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
 
                 if (!isMounted) return;
 
-                // 1. Cargar CSS dinámico
                 if (!document.getElementById('plyr-css')) {
                     const link = document.createElement('link');
                     link.id = 'plyr-css';
@@ -265,7 +260,6 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                     document.head.appendChild(style);
                 }
 
-                // 2. Funciones de carga estrictas
                 const loadScript = (src, globalVar) => new Promise((resolve) => {
                     if (globalVar && window[globalVar]) return resolve();
                     const script = document.createElement('script');
@@ -274,8 +268,6 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                     document.head.appendChild(script);
                 });
 
-                // CARGA ESTRICTA DE CHROMECAST (La clave de que no saliera el botón)
-                // Plyr NO mostrará el botón Cast si esta API no está cargada *antes* de iniciar
                 await new Promise((resolve) => {
                     if (window.chrome && window.chrome.cast && window.chrome.cast.isAvailable) {
                         return resolve();
@@ -289,7 +281,6 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                         script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
                         document.head.appendChild(script);
                     }
-                    // Fallback para no bloquear la reproducción si el usuario tiene bloqueadores de Google
                     setTimeout(resolve, 1500); 
                 });
 
@@ -311,9 +302,8 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
 
                 const plyrOptions = {
                     controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'settings', 'pip', 'airplay', 'cast', 'fullscreen'],
-                    settings: ['quality'], // Sin control de velocidad
+                    settings: ['quality'],
                     autoplay: true,
-                    // Forzamos a Plyr a usar Cast
                     cast: { enabled: true } 
                 };
 
@@ -630,8 +620,6 @@ const getInitialURLParams = () => {
     };
 };
 
-let isFetchingDiscord = false;
-
 export default function App() {
   const initParams = useMemo(getInitialURLParams, []);
 
@@ -679,7 +667,7 @@ export default function App() {
   const [streamPassword, setStreamPassword] = useState("••••••••••••");
   const [streamSid, setStreamSid] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [usePatreon, setUsePatreon] = useState(false); // <-- NUEVO: Toggle de Servidor
+  const [usePatreon, setUsePatreon] = useState(false); 
   
   const [visibleCount, setVisibleCount] = useState(100);
   const [sortBy, setSortBy] = useState('default');
@@ -706,7 +694,7 @@ export default function App() {
   // --- CAMBIO DE IDIOMA ---
   useEffect(() => {
      localStorage.setItem('elpepestreams_lang', appLang);
-     setSelectedCategory(null); // Cerramos cualquier categoría abierta para forzar el refresco de textos en el menú principal
+     setSelectedCategory(null);
      if (hasFetchedRef.current && (activeTab === 'inicio' || activeTab === 'pelis')) {
         setLoading(true);
         fetchContent(appLang);
@@ -718,6 +706,7 @@ export default function App() {
     const url = new URL(window.location);
     let changed = false;
 
+    // Eliminamos el código de la URL para que quede limpia
     if (url.searchParams.has('code')) {
         url.searchParams.delete('code');
         changed = true;
@@ -760,7 +749,9 @@ export default function App() {
     }
   }, [activeTab, selectedItem, searchQuery, selectedCategory]);
 
-  // --- MOTOR DE AUTENTICACIÓN MEJORADO ---
+  // --- MOTOR DE AUTENTICACIÓN MEJORADO Y BLINDADO ---
+  const hasProcessedCode = useRef(false); // Cerrojo anti-doble-render
+
   useEffect(() => {
     const savedPassword = sessionStorage.getItem('stream_password');
     const savedSid = sessionStorage.getItem('stream_sid');
@@ -773,7 +764,7 @@ export default function App() {
         setStreamPassword(savedPassword);
         if (savedSid) {
             setStreamSid(savedSid);
-            setUsePatreon(true); // Si entra con SID, activamos Patreon por defecto
+            setUsePatreon(true); 
         } else {
             setUsePatreon(false);
         }
@@ -785,12 +776,11 @@ export default function App() {
 
     const code = initParams.code;
     
-    if (code) {
-        if (isFetchingDiscord) return;
-        isFetchingDiscord = true;
-
+    // Si hay código y NO lo hemos procesado en esta sesión:
+    if (code && !hasProcessedCode.current) {
+        hasProcessedCode.current = true; // Echamos el cerrojo
         setIsVerifying(true);
-        setStreamPassword(t.verificando);
+        setStreamPassword("Verificando...");
         
         fetch(`/.netlify/functions/verificar?code=${code}`)
             .then(async res => {
@@ -803,7 +793,7 @@ export default function App() {
             .then(data => {
                 if(data.success) {
                     if (!data.password || data.password.trim() === "") {
-                        setStreamPassword("❌ Activa 'Message Content Intent' en el Bot");
+                        setStreamPassword("❌ Error de permisos");
                     } else {
                         let cleanText = data.password.replace(/[*`]/g, '').trim();
                         cleanText = cleanText.replace(/^['"]|['"]$/g, '').trim();
@@ -839,8 +829,9 @@ export default function App() {
                             }
                         }
 
-                        setStreamPassword(finalPass || t.sin_pass);
-                        sessionStorage.setItem('stream_password', finalPass || t.sin_pass);
+                        // Guardar en sesión
+                        setStreamPassword(finalPass || "Sin Contraseña");
+                        sessionStorage.setItem('stream_password', finalPass || "Sin Contraseña");
                         sessionStorage.setItem('stream_auth_time', Date.now().toString());
                         
                         if (finalSid) {
@@ -863,10 +854,9 @@ export default function App() {
             })
             .finally(() => {
                 setIsVerifying(false);
-                isFetchingDiscord = false;
             });
     }
-  }, [initParams.code, t.verificando, t.sin_pass]);
+  }, []); // <-- Array de dependencias vacío para que esto se lea sólo una vez al montar
 
   useEffect(() => {
       if (activeTab === 'directos' && !isVerifying) {
@@ -1573,7 +1563,7 @@ export default function App() {
                                 {/* Botón Refrescar (Secundario) */}
                                 <div className="mt-auto w-full pt-4">
                                     <a 
-                                        href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felpepestreamstv.netlify.app%2F%3Ftab%3Ddirectos&scope=identify"
+                                        href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify"
                                         className="w-full font-bold py-3 px-6 rounded-lg transition-all border border-white/10 bg-[#202225] hover:bg-[#2f3136] text-gray-300 text-xs flex items-center justify-center gap-2 group"
                                     >
                                         <RefreshCw size={14} className="group-hover:rotate-180 transition-transform duration-500" /> {t.refrescar_pass}
@@ -1593,9 +1583,8 @@ export default function App() {
                                     {t.desc_directo}
                                 </p>
                                 
-                                {/* URL de Discord arreglada (scope=identify) */}
                                 <a 
-                                   href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felpepestreamstv.netlify.app%2F%3Ftab%3Ddirectos&scope=identify"
+                                   href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify"
                                    className={`font-bold py-3 px-6 rounded-lg transition-all w-full shadow-lg hover:scale-105 flex items-center justify-center gap-2 text-sm shrink-0 ${
                                        isVerifying ? 'opacity-50 pointer-events-none bg-[#5865F2] text-white' : 
                                        'bg-[#5865F2] hover:bg-[#4752C4] text-white'
