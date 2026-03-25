@@ -2,17 +2,30 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Search, Home, Film, Download, X, Info, ChevronRight, ChevronLeft, AlertTriangle, Monitor, Layers, Star, Grid, List as ListIcon, Filter, ArrowDownWideNarrow, Globe, Calendar, Tv, Radio, Server } from 'lucide-react';
 
 // --- CONFIGURACIÓN ---
-const CACHE_VERSION = "v3_cloud_optimized"; 
+const TMDB_API_KEY = "342815a2b6a677bbc29fd13a6e3c1c3a"; // <-- Tu key de TMDB restaurada
+const CACHE_VERSION = "v4_tmdb_direct"; // Forzamos nueva caché para borrar los fallos anteriores
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; 
 const STREAM_CHANNEL = "elpintaunas"; 
 const API_BASE = "/api"; 
 
+// Diccionario ampliado para detectar lo que viene de tu Google Sheets
 const LANGUAGE_MAP = {
   'es': 'Español', 'es-es': 'Español (España)', 'es-mx': 'Español (Latino)',
+  'español': 'Español', 'castellano': 'Español (España)', 'latino': 'Español (Latino)',
+  'español latino': 'Español (Latino)', 'español (latino)': 'Español (Latino)',
   'en': 'Inglés', 'en-us': 'Inglés (EEUU)', 'en-gb': 'Inglés (Reino Unido)',
-  'cat': 'Catalán', 'ca': 'Catalán', 'va': 'Valenciano', 'val': 'Valenciano',
-  'eus': 'Euskera', 'eu': 'Euskera', 'gal': 'Gallego', 'gl': 'Gallego',
-  'fr': 'Francés', 'it': 'Italiano', 'de': 'Alemán', 'ja': 'Japonés', 'jp': 'Japonés', 'ko': 'Coreano', 'pt': 'Portugués'
+  'ingles': 'Inglés', 'inglés': 'Inglés', 'english': 'Inglés',
+  'vose': 'Inglés (VOSE)', 'subtitulado': 'VOSE',
+  'cat': 'Catalán', 'ca': 'Catalán', 'catalan': 'Catalán', 'catalán': 'Catalán',
+  'va': 'Valenciano', 'val': 'Valenciano', 'valenciano': 'Valenciano',
+  'eus': 'Euskera', 'eu': 'Euskera', 'euskera': 'Euskera', 'vasco': 'Euskera',
+  'gal': 'Gallego', 'gl': 'Gallego', 'gallego': 'Gallego',
+  'fr': 'Francés', 'frances': 'Francés', 'francés': 'Francés',
+  'it': 'Italiano', 'italiano': 'Italiano',
+  'de': 'Alemán', 'aleman': 'Alemán', 'alemán': 'Alemán',
+  'ja': 'Japonés', 'jp': 'Japonés', 'japones': 'Japonés', 'japonés': 'Japonés',
+  'ko': 'Coreano', 'coreano': 'Coreano',
+  'pt': 'Portugués', 'portugues': 'Portugués', 'portugués': 'Portugués'
 };
 
 // --- DICCIONARIO DE IDIOMAS DETALLE ---
@@ -20,24 +33,28 @@ const LANG_TRANSLATIONS = {
     'es': {
         'Español': 'Español', 'Español (España)': 'Español (España)', 'Español (Latino)': 'Español (Latino)',
         'Inglés': 'Inglés', 'Inglés (EEUU)': 'Inglés (EEUU)', 'Inglés (Reino Unido)': 'Inglés (Reino Unido)',
+        'Inglés (VOSE)': 'Inglés (VOSE)', 'VOSE': 'VOSE',
         'Catalán': 'Catalán', 'Valenciano': 'Valenciano', 'Euskera': 'Euskera', 'Gallego': 'Gallego',
         'Francés': 'Francés', 'Italiano': 'Italiano', 'Alemán': 'Alemán', 'Japonés': 'Japonés', 'Portugués': 'Portugués'
     },
     'ca': {
         'Español': 'Espanyol', 'Español (España)': 'Espanyol (Espanya)', 'Español (Latino)': 'Espanyol (Llatí)',
         'Inglés': 'Anglès', 'Inglés (EEUU)': 'Anglès (EUA)', 'Inglés (Reino Unido)': 'Anglès (Regne Unit)',
+        'Inglés (VOSE)': 'Anglès (VOSE)', 'VOSE': 'VOSE',
         'Catalán': 'Català', 'Valenciano': 'Valencià', 'Euskera': 'Basc', 'Gallego': 'Gallec',
         'Francés': 'Francès', 'Italiano': 'Italià', 'Alemán': 'Alemany', 'Japonés': 'Japonès', 'Portugués': 'Portuguès'
     },
     'gl': {
         'Español': 'Español', 'Español (España)': 'Español (España)', 'Español (Latino)': 'Español (Latino)',
         'Inglés': 'Inglés', 'Inglés (EEUU)': 'Inglés (EEUU)', 'Inglés (Reino Unido)': 'Inglés (Reino Unido)',
+        'Inglés (VOSE)': 'Inglés (VOSE)', 'VOSE': 'VOSE',
         'Catalán': 'Catalán', 'Valenciano': 'Valenciano', 'Euskera': 'Euskera', 'Gallego': 'Galego',
         'Francés': 'Francés', 'Italiano': 'Italiano', 'Alemán': 'Alemán', 'Japonés': 'Xaponés', 'Portugués': 'Portugués'
     },
     'eu': {
         'Español': 'Gaztelania', 'Español (España)': 'Gaztelania (Espainia)', 'Español (Latino)': 'Gaztelania (Latino)',
         'Inglés': 'Ingelesa', 'Inglés (EEUU)': 'Ingelesa (AEB)', 'Inglés (Reino Unido)': 'Ingelesa (Erresuma Batua)',
+        'Inglés (VOSE)': 'Ingelesa (VOSE)', 'VOSE': 'VOSE',
         'Catalán': 'Katalana', 'Valenciano': 'Valentziera', 'Euskera': 'Euskara', 'Gallego': 'Galiziera',
         'Francés': 'Frantsesa', 'Italiano': 'Italiera', 'Alemán': 'Alemana', 'Japonés': 'Japoniera', 'Portugués': 'Portugesa'
     }
@@ -782,7 +799,7 @@ export default function App() {
 
   const translateLangs = (str, targetLang) => {
     if (!str || str === 'N/A') return 'N/A';
-    return str.split(/[,/-]/).map(l => {
+    return str.split(/[,/|-]/).map(l => {
       const clean = l.trim().toLowerCase();
       const baseEs = LANGUAGE_MAP[clean] || l.trim();
       return LANG_TRANSLATIONS[targetLang]?.[baseEs] || baseEs;
@@ -812,11 +829,11 @@ export default function App() {
       if (!res.ok) throw new Error("Fallo al contactar con la librería");
       const rawRows = await res.json();
       
-      const chunkSize = 25; 
+      const chunkSize = 10; // Reducimos a 10 por bloque para no saturar a TMDB en la 1ra carga
       const enriched = [];
       const translatedNoDesc = UI_TRANSLATIONS[currentLang].sin_descripcion;
       
-      // 2. Por cada fila del CSV, comprobamos si la tenemos en LocalStorage. Si no, preguntamos a nuestro backend de TMDB.
+      // 2. Por cada fila del CSV, comprobamos caché local o pedimos directamente a TMDB desde el navegador
       for (let i = 0; i < rawRows.length; i += chunkSize) {
         const chunk = rawRows.slice(i, i + chunkSize);
         const chunkEnriched = await Promise.all(chunk.map(async (row, idx) => {
@@ -831,12 +848,37 @@ export default function App() {
               return { ...cachedItem, id: `item-${i + idx}`, videoQuality: newQuality, language: newLang, link: row.link };
           }
 
-          // Pasamos el título y año a nuestro proxy en Cloudflare, el cual también guarda la respuesta en caché
           let tmdb = null;
           try {
-              const tmdbRes = await fetch(`${API_BASE}/tmdb?title=${encodeURIComponent(row.title)}&year=${encodeURIComponent(row.year)}&lang=${currentLang}`);
-              if (tmdbRes.ok) tmdb = await tmdbRes.json();
-          } catch (e) { console.warn("TMDB Proxy Error:", e); }
+              // Conectamos directamente con la API pública de TMDB
+              const searchUrl = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(row.title)}&year=${encodeURIComponent(row.year)}&language=${currentLang}`;
+              const searchRes = await fetch(searchUrl);
+              const searchData = await searchRes.json();
+              
+              if (searchData.results && searchData.results.length > 0) {
+                  const movie = searchData.results[0];
+                  // Obtenemos detalles extra (Colecciones, sagas y géneros bien formateados)
+                  const detailsUrl = `https://api.themoviedb.org/3/movie/${movie.id}?api_key=${TMDB_API_KEY}&language=${currentLang}`;
+                  const detailsRes = await fetch(detailsUrl);
+                  const details = await detailsRes.json();
+                  
+                  tmdb = {
+                      tmdbTitle: details.title,
+                      year: details.release_date ? details.release_date.substring(0, 4) : row.year,
+                      overview: details.overview,
+                      poster: details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : null,
+                      backdrop: details.backdrop_path ? `https://image.tmdb.org/t/p/w1280${details.backdrop_path}` : null,
+                      rating: details.vote_average ? details.vote_average.toFixed(1) : 'N/A',
+                      genres: details.genres ? details.genres.map(g => g.name) : [],
+                      collection: details.belongs_to_collection ? {
+                          id: details.belongs_to_collection.id,
+                          name: details.belongs_to_collection.name,
+                          poster: details.belongs_to_collection.poster_path ? `https://image.tmdb.org/t/p/w500${details.belongs_to_collection.poster_path}` : null,
+                          backdrop: details.belongs_to_collection.backdrop_path ? `https://image.tmdb.org/t/p/w1280${details.belongs_to_collection.backdrop_path}` : null,
+                      } : null
+                  };
+              }
+          } catch (e) { console.warn("TMDB Direct Fetch Error:", e); }
           
           return {
             id: `item-${i + idx}`,
