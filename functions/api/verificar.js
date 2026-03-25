@@ -1,84 +1,113 @@
 export async function onRequest(context) {
-    const url = new URL(context.request.url);
-    const isRefresh = url.searchParams.get('refresh') === 'true';
+  const { request, env } = context;
+  const url = new URL(request.url);
+  const code = url.searchParams.get('code');
 
-    const corsHeaders = {
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": "application/json",
-        "Cache-Control": isRefresh ? "no-cache, no-store, must-revalidate" : "public, max-age=3600"
-    };
-    
-    try {
-        // Tu ID de Google Sheets
-        const SHEET_ID = "104RB6GK9_m_nzIakTU3MJLaDJPwt9fYmfHF3ikyixFE";
-        
-        // Trampa anti-caché para Google Sheets
-        const cacheBuster = isRefresh ? `&cb=${Date.now()}` : '';
-        const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Peliculas${cacheBuster}`;
-        
-        const res = await fetch(CSV_URL);
-        if (!res.ok) throw new Error("Fallo al descargar el CSV de Google");
-        
-        const csvText = await res.text();
-        
-        // Función ultra-robusta para leer CSV
-        const rows = [];
-        let row = [];
-        let inQuotes = false;
-        let value = '';
-        for (let i = 0; i < csvText.length; i++) {
-            const char = csvText[i];
-            if (char === '"') {
-                if (inQuotes && csvText[i+1] === '"') { value += '"'; i++; }
-                else { inQuotes = !inQuotes; }
-            } else if (char === ',' && !inQuotes) {
-                row.push(value.trim()); value = '';
-            } else if ((char === '\n' || char === '\r') && !inQuotes) {
-                if (char === '\r' && csvText[i+1] === '\n') i++; 
-                row.push(value.trim()); 
-                if (row.length > 1 || row[0] !== '') rows.push(row); 
-                row = []; value = '';
-            } else {
-                value += char;
-            }
-        }
-        if (value || row.length > 0) { row.push(value.trim()); rows.push(row); }
-        
-        if (rows.length < 2) return new Response(JSON.stringify([]), { status: 200, headers: corsHeaders });
-        
-        // Identificar las columnas automáticamente
-        const headers = rows[0].map(h => h.toLowerCase());
-        const titleIdx = headers.findIndex(h => h.includes('título') || h.includes('titulo') || h === 'title');
-        const yearIdx = headers.findIndex(h => h.includes('año') || h === 'year');
-        const qualityIdx = headers.findIndex(h => h.includes('calidad') || h === 'quality');
-        const langIdx = headers.findIndex(h => h.includes('idioma') || h === 'language');
-        const genreIdx = headers.findIndex(h => h.includes('género') || h.includes('genero') || h === 'genre');
-        
-        // --- FIX DE LOS ENLACES ---
-        // Buscamos específicamente la columna LNKF. Si no existe con ese nombre, forzamos la columna I (índice 8)
-        let linkIdx = headers.findIndex(h => h === 'lnkf');
-        if (linkIdx === -1) {
-            linkIdx = 8; // (0=A, 1=B, 2=C... 6=G, 7=H, 8=I)
-        }
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Content-Type": "application/json"
+  };
 
-        const items = [];
-        for (let i = 1; i < rows.length; i++) {
-            const cols = rows[i];
-            if (!cols || cols.length < 2) continue;
-            
-            // Transformar todo a un JSON unificado
-            items.push({
-                title: titleIdx >= 0 ? cols[titleIdx] : '',
-                year: yearIdx >= 0 ? cols[yearIdx] : '',
-                quality: qualityIdx >= 0 ? cols[qualityIdx] : '',
-                language: langIdx >= 0 ? cols[langIdx] : '',
-                link: linkIdx >= 0 && cols[linkIdx] ? cols[linkIdx] : '',
-                rawGenre: genreIdx >= 0 ? cols[genreIdx] : ''
-            });
-        }
+  // Si no hay código, devolvemos error
+  if (!code) {
+    return new Response(JSON.stringify({ success: false, error: 'Falta el código de autorización' }), { 
+        status: 400, 
+        headers: corsHeaders 
+    });
+  }
 
-        return new Response(JSON.stringify(items), { status: 200, headers: corsHeaders });
-    } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
+  // Variables de Entorno (Deben coincidir con las configuradas en Cloudflare)
+  const CLIENT_ID = env.CLIENT_ID;
+  const CLIENT_SECRET = env.CLIENT_SECRET;
+  const BOT_TOKEN = env.BOT_TOKEN;
+  const GUILD_ID = env.GUILD_ID;
+  const ROLE_ID = env.ROLE_ID;
+  const CHANNEL_ID = env.CHANNEL_ID;
+  
+  // ¡MUY IMPORTANTE! Esta URL debe ser idéntica a la que usas en App.jsx y en Discord Developer Portal
+  const REDIRECT_URI = 'https://elppstrmstv.pages.dev/?tab=directos';
+
+  try {
+    // --- FASE A: Intercambiar el código por el Token del Usuario ---
+    const tokenParams = new URLSearchParams({
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: REDIRECT_URI
+    });
+
+    const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: tokenParams
+    });
+
+    const tokenData = await tokenRes.json();
+
+    if (tokenData.error) {
+      return new Response(JSON.stringify({ success: false, error: `Error de OAuth2: ${tokenData.error_description || tokenData.error}` }), { 
+          status: 401, headers: corsHeaders 
+      });
     }
+
+    // --- FASE B: Obtener la ID del Usuario ---
+    const userRes = await fetch('https://discord.com/api/users/@me', {
+      headers: { authorization: `${tokenData.token_type} ${tokenData.access_token}` }
+    });
+    const userData = await userRes.json();
+    const userId = userData.id;
+
+    // --- FASE C: Comprobar si está en el Servidor ---
+    const memberRes = await fetch(`https://discord.com/api/guilds/${GUILD_ID}/members/${userId}`, {
+      headers: { authorization: `Bot ${BOT_TOKEN}` } 
+    });
+    
+    if (memberRes.status === 404) {
+        return new Response(JSON.stringify({ success: false, error: 'No estás en el servidor de Discord' }), { 
+            status: 403, headers: corsHeaders 
+        });
+    }
+    
+    const memberData = await memberRes.json();
+
+    // --- FASE D: Comprobar si tiene el Rol VIP ---
+    if (!memberData.roles || !memberData.roles.includes(ROLE_ID)) {
+       return new Response(JSON.stringify({ success: false, error: 'No tienes el rol VIP necesario en el servidor' }), { 
+           status: 403, headers: corsHeaders 
+       });
+    }
+
+    // --- FASE E: Extraer la contraseña del canal (Con el Bot) ---
+    const msgRes = await fetch(`https://discord.com/api/channels/${CHANNEL_ID}/messages?limit=1`, {
+      headers: { authorization: `Bot ${BOT_TOKEN}` }
+    });
+    const msgData = await msgRes.json();
+
+    if (msgData.message) {
+       return new Response(JSON.stringify({ success: false, error: `Discord bloqueó al bot: ${msgData.message}` }), { 
+           status: 403, headers: corsHeaders 
+       });
+    }
+
+    if (!Array.isArray(msgData) || msgData.length === 0) {
+       return new Response(JSON.stringify({ success: false, error: 'El canal de la contraseña está totalmente vacío.' }), { 
+           status: 404, headers: corsHeaders 
+       });
+    }
+
+    const password = msgData[0].content; 
+
+    // --- FASE F: Devolver la contraseña (Éxito) ---
+    return new Response(JSON.stringify({ success: true, password: password }), { 
+        status: 200, 
+        headers: corsHeaders 
+    });
+
+  } catch (error) {
+    console.error("Error en la verificación:", error);
+    return new Response(JSON.stringify({ success: false, error: `Fallo interno del servidor: ${error.message}` }), { 
+        status: 500, headers: corsHeaders 
+    });
+  }
 }
