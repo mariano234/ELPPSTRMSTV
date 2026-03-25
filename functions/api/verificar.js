@@ -1,13 +1,20 @@
 export async function onRequest(context) {
+    const url = new URL(context.request.url);
+    const isRefresh = url.searchParams.get('refresh') === 'true';
+
     const corsHeaders = {
         "Access-Control-Allow-Origin": "*",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Cache-Control": isRefresh ? "no-cache, no-store, must-revalidate" : "public, max-age=3600"
     };
     
     try {
         // Tu ID de Google Sheets
         const SHEET_ID = "104RB6GK9_m_nzIakTU3MJLaDJPwt9fYmfHF3ikyixFE";
-        const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Peliculas`;
+        
+        // Trampa anti-caché para Google Sheets
+        const cacheBuster = isRefresh ? `&cb=${Date.now()}` : '';
+        const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Peliculas${cacheBuster}`;
         
         const res = await fetch(CSV_URL);
         if (!res.ok) throw new Error("Fallo al descargar el CSV de Google");
