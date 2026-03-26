@@ -127,20 +127,32 @@ export async function onRequest(context) {
             const baseHeaders = {
                 "Content-Type": "application/json",
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Referer": "https://player.angelthump.com/"
+                "Referer": "https://player.angelthump.com/",
+                "Origin": "https://angelthump.com"
             };
+
+            // Asegurarnos de tener SIEMPRE un identifier (vital para Angelthump). Si React no lo mandó, lo robamos de la web.
+            let validIdentifier = identifier || "SwnpX0RnA99YdRj0SPqs";
+            if (!identifier) {
+                try {
+                    const playerRes = await fetch(`https://player.angelthump.com/?channel=${channel}`, { headers: baseHeaders });
+                    const html = await playerRes.text();
+                    const match = html.match(/identifier\s*:\s*['"]([^'"]+)['"]/);
+                    if (match && match[1]) validIdentifier = match[1];
+                } catch (e) { console.log("Fallo al obtener identifier"); }
+            }
 
             // A. LÓGICA USUARIO NORMAL (Público con Contraseña)
             if (!patreon && password) {
-                const passRes = await fetch(`https://angelthump.com/api/channel/${channel}/password`, {
+                const passRes = await fetch(`https://api.angelthump.com/v3/streams/password`, {
                     method: "POST",
                     headers: baseHeaders,
-                    body: JSON.stringify({ password })
+                    body: JSON.stringify({ user_id: "330abf9e-0b6c-4545-b0b1-6e57ce2a79a5", password: password })
                 });
 
                 if (!passRes.ok) {
-                    const errorText = await passRes.text();
-                    return new Response(JSON.stringify({ error: "Contraseña incorrecta." }), { 
+                    const passData = await passRes.json().catch(() => ({}));
+                    return new Response(JSON.stringify({ error: passData.message || "Contraseña incorrecta." }), { 
                         status: passRes.status > 200 ? passRes.status : 401, 
                         headers: { ...corsHeaders, "Content-Type": "application/json" } 
                     });
@@ -148,7 +160,8 @@ export async function onRequest(context) {
 
                 const setCookieRaw = passRes.headers.get('set-cookie');
                 if (setCookieRaw) {
-                    sessionCookie = setCookieRaw.split(';')[0];
+                    const matches = setCookieRaw.match(/angelthump\.sid=[^;]+/g);
+                    sessionCookie = matches && matches.length > 0 ? matches[0] : setCookieRaw.split(';')[0];
                 }
             } 
             // B. LÓGICA USUARIO PATREON (SID detectado)
@@ -157,9 +170,8 @@ export async function onRequest(context) {
             }
 
             // C. CANJEAR SESIÓN/PASS POR EL TOKEN HLS FINAL
-            const tokenHeaders = { ...baseHeaders };
+            const tokenHeaders = { ...baseHeaders, "identifier": validIdentifier };
             if (sessionCookie) tokenHeaders["Cookie"] = sessionCookie;
-            if (identifier) tokenHeaders["identifier"] = identifier;
 
             const tokenRes = await fetch(`https://vigor.angelthump.com/${channel}/token`, {
                 method: "POST",
@@ -167,7 +179,7 @@ export async function onRequest(context) {
                 body: JSON.stringify({ patreon: !!patreon })
             });
 
-            const tokenData = await tokenRes.json();
+            const tokenData = await tokenRes.json().catch(() => ({}));
             
             if (!tokenRes.ok || !tokenData.token) {
                  return new Response(JSON.stringify({ error: tokenData.message || "Fallo al canjear la sesión por el token de vídeo." }), { 
@@ -176,8 +188,8 @@ export async function onRequest(context) {
                  });
             }
 
-            // Devolver el token (y devolver el identifier si venía, por compatibilidad con App.jsx)
-            return new Response(JSON.stringify({ token: tokenData.token, identifier: identifier || null }), { 
+            // Devolver el token y el identifier (para que el frontend lo inyecte en las URLs GET)
+            return new Response(JSON.stringify({ token: tokenData.token, identifier: validIdentifier }), { 
                 status: 200, 
                 headers: { ...corsHeaders, "Content-Type": "application/json" } 
             });
