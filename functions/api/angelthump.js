@@ -19,26 +19,35 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // PROXY GET: SOLO PARA EL ARCHIVO MAESTRO .M3U8
+    // PROXY GET: PARA SALTARS EL CORS DEL .M3U8
     // ==========================================
     if (request.method === "GET") {
         const targetUrl = url.searchParams.get('url');
+        const sid = url.searchParams.get('sid');
+        
         if (!targetUrl) return new Response(JSON.stringify({ error: "Falta la URL" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+        const getHeaders = {
+            "accept": "*/*",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Origin": "https://player.angelthump.com",
+            "Referer": "https://player.angelthump.com/"
+        };
+        
+        // Adjuntar la sesión si es de Patreon (necesaria para el m3u8 maestro)
+        if (sid) getHeaders["Cookie"] = `angelthump.sid=${sid}`;
 
         try {
             const res = await fetch(targetUrl, {
                 method: 'GET',
-                headers: {
-                    "accept": "*/*",
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                    "Origin": "https://player.angelthump.com",
-                    "Referer": "https://player.angelthump.com/"
-                }
+                headers: getHeaders
             });
 
             const contentType = res.headers.get("content-type");
             let body = await res.arrayBuffer();
             
+            // Transformamos las rutas relativas a absolutas para que el navegador 
+            // descargue los fragmentos (.m4s) directamente de Angelthump sin gastar tu proxy
             if (contentType && (contentType.includes("mpegurl") || contentType.includes("text/plain"))) {
                 let text = new TextDecoder("utf-8").decode(body);
                 const baseUrl = new URL(targetUrl);
@@ -78,14 +87,29 @@ export async function onRequest(context) {
             const password = body.password;
             
             let sid = body.sid;
-            let identifier = body.identifier || request.headers.get('identifier');
             
-            // Decodificar el SID por si viene como URL codificada (s%3A en lugar de s:)
-            if (sid && sid.startsWith('s%3A')) {
-                sid = decodeURIComponent(sid);
+            // Decodificar y limpiar el SID
+            if (sid) {
+                sid = decodeURIComponent(sid).replace(/['"]+/g, '').replace(/^angelthump\.sid=/, '').trim();
             }
 
-            if (!identifier) identifier = "SwnpX0RnA99YdRj0SPqs";
+            // ==========================================
+            // MAGIA: EXTRAER EL IDENTIFIER REAL
+            // ==========================================
+            let realIdentifier = "SwnpX0RnA99YdRj0SPqs"; // Fallback seguro
+            try {
+                const playerRes = await fetch(`https://player.angelthump.com/?channel=${channel}`, {
+                    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+                });
+                const html = await playerRes.text();
+                // Buscamos el identifier en el script de la página oficial de Angelthump
+                const match = html.match(/identifier\s*:\s*['"]([^'"]+)['"]/);
+                if (match && match[1]) {
+                    realIdentifier = match[1];
+                }
+            } catch (e) {
+                console.log("Fallo al robar el identifier, usando fallback.");
+            }
 
             const baseHeaders = {
                 "Accept": "application/json, text/plain, */*",
@@ -99,7 +123,6 @@ export async function onRequest(context) {
 
             if (usePatreon) {
                 // --- MODO PREMIUM (PATREON) ---
-                // Confiamos EXACTAMENTE en el SID que el bot de Discord te ha proporcionado.
                 if (!sid) {
                     return new Response(JSON.stringify({ error: "Faltan credenciales Patreon (sid no encontrado)." }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
                 }
@@ -128,7 +151,8 @@ export async function onRequest(context) {
             }
 
             // --- FETCH FINAL DEL TOKEN A VIGOR ---
-            const tokenHeaders = { ...baseHeaders, "identifier": identifier };
+            // Aquí enviamos el identificador real que extrajimos de la web (o el fallback)
+            const tokenHeaders = { ...baseHeaders, "identifier": realIdentifier };
             if (sessionCookie) tokenHeaders["Cookie"] = sessionCookie;
 
             const tokenRes = await fetch(`https://vigor.angelthump.com/${channel}/token`, {
