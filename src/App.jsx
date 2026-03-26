@@ -183,11 +183,8 @@ const UI_TRANSLATIONS = {
 const extractIdentifier = (sid) => {
   if (!sid) return null;
   let str = sid;
-  // Decodificamos si viene como URL encoded (s%3A)
   if (str.startsWith('s%3A')) str = decodeURIComponent(str);
-  // Formato Express Session: s:SessionID.Signature
   if (str.startsWith('s:')) return str.substring(2).split('.')[0];
-  // Formato JWT: eyJhbG...
   if (str.startsWith('ey')) {
       try {
           const decoded = JSON.parse(atob(str.split('.')[1]));
@@ -210,13 +207,11 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
             setError(null);
             setStatus('Autenticando con Angelthump...');
             try {
-                // Limpiamos la SID por si el bot incluye la palabra 'angelthump.sid='
                 const cleanSid = streamSid ? streamSid.replace('angelthump.sid=', '') : '';
-                
-                // 1. Evitamos enviar frases de la interfaz a Angelthump
                 const cleanPass = streamPassword ? streamPassword.trim() : '';
                 const isValidPass = cleanPass && cleanPass !== t.sin_pass && !cleanPass.includes('••••') && !cleanPass.includes('❌');
-                
+                const identifier = extractIdentifier(cleanSid);
+
                 const payload = {
                     channel: channel,
                     patreon: usePatreon
@@ -224,12 +219,14 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                 
                 if (usePatreon && cleanSid) {
                     payload.sid = cleanSid;
+                    if (identifier) payload.identifier = identifier;
                 } else if (!usePatreon && isValidPass) {
                     payload.password = cleanPass;
                 }
 
                 console.log("🛠️ [DEBUG] Payload que enviamos al proxy:", payload);
 
+                // LLAMADA AL PROXY CLOUDFLARE
                 const res = await fetch(`/api/angelthump`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -249,17 +246,14 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
 
                 const rawM3u8 = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
                 
+                // LLAMADA GET PASANDO POR CLOUDFLARE
                 let m3u8Url = `/api/angelthump?url=${encodeURIComponent(rawM3u8)}`;
-                if (usePatreon && cleanSid) {
-                    m3u8Url += `&sid=${encodeURIComponent(cleanSid)}`;
-                }
-                if (data.identifier) {
-                    m3u8Url += `&identifier=${encodeURIComponent(data.identifier)}`;
+                if (usePatreon && identifier) {
+                    m3u8Url += `&identifier=${encodeURIComponent(identifier)}&sid=${encodeURIComponent(cleanSid)}`;
                 }
 
                 console.log("🔗 [DEBUG] URL del vídeo pasando por proxy:", m3u8Url);
 
-                // Aquí ya inicializas HLS.js con la nueva 'm3u8Url'
                 if (!window.Hls) {
                     await new Promise((resolve, reject) => {
                         const script = document.createElement('script');
@@ -738,7 +732,7 @@ export default function App() {
         setIsVerifying(true);
         setStreamPassword(t.verificando);
         
-        // Cambiado para asegurar que llama a Cloudflare
+        // LLAMADA AL BACKEND DE CLOUDFLARE
         fetch(`/api/verificar?code=${code}`)
             .then(async res => {
                 if (!res.ok) {
@@ -1496,7 +1490,7 @@ export default function App() {
                         </p>
                         
                         <a 
-                           href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felpepestreamstv.netlify.app%2F%3Ftab%3Ddirectos&scope=identify"
+                           href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify"
                            className={`font-bold py-2.5 px-6 rounded-md transition-all w-full shadow-lg hover:scale-105 flex items-center justify-center gap-2 text-sm shrink-0 ${
                                isVerifying ? 'opacity-50 pointer-events-none bg-[#5865F2] text-white' : 
                                isLogged ? 'bg-neutral-800 hover:bg-neutral-700 text-gray-300 border border-white/10' : 
@@ -1538,7 +1532,7 @@ export default function App() {
                                 <div className="flex bg-black/50 rounded-lg p-1 border border-white/5 mb-3">
                                     <button 
                                         onClick={() => setUsePatreon(true)}
-                                        disabled={!streamSid} // Si no tiene SID de Angelthump (porque falló o no existe), no puede usar Patreon
+                                        disabled={!streamSid} 
                                         className={`flex-1 py-2 text-[11px] font-bold rounded-md transition-all ${usePatreon ? 'bg-[#e5a00d] text-black shadow-md' : 'text-gray-400 hover:text-white'} ${!streamSid ? 'opacity-30 cursor-not-allowed' : ''}`}
                                     >
                                         {t.serv_patreon}
