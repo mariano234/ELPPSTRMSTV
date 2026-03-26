@@ -19,7 +19,7 @@ export async function onRequest(context) {
     }
 
     // ==========================================
-    // PROXY GET: PARA SALTARS EL CORS DEL .M3U8
+    // PROXY GET: PUENTE PARA .M3U8 Y FRAGMENTOS
     // ==========================================
     if (request.method === "GET") {
         const targetUrl = url.searchParams.get('url');
@@ -34,7 +34,7 @@ export async function onRequest(context) {
             "Referer": "https://player.angelthump.com/"
         };
         
-        // Adjuntar la sesión si es de Patreon (necesaria para el m3u8 maestro)
+        // Adjuntar la sesión si es de Patreon (necesaria para el m3u8 y los fragmentos)
         if (sid) getHeaders["Cookie"] = `angelthump.sid=${sid}`;
 
         try {
@@ -43,34 +43,57 @@ export async function onRequest(context) {
                 headers: getHeaders
             });
 
-            const contentType = res.headers.get("content-type");
-            let body = await res.arrayBuffer();
-            
-            // Transformamos las rutas relativas a absolutas para que el navegador 
-            // descargue los fragmentos (.m4s) directamente de Angelthump sin gastar tu proxy
-            if (contentType && (contentType.includes("mpegurl") || contentType.includes("text/plain"))) {
-                let text = new TextDecoder("utf-8").decode(body);
+            const contentType = res.headers.get("content-type") || "";
+            const isText = contentType.includes("mpegurl") || contentType.includes("text/plain") || targetUrl.includes(".m3u8");
+
+            if (isText) {
+                // Si es un archivo de lista, reescribimos los enlaces
+                let text = await res.text();
                 const baseUrl = new URL(targetUrl);
                 const basePath = baseUrl.origin + baseUrl.pathname.substring(0, baseUrl.pathname.lastIndexOf('/') + 1);
+                const proxyPath = url.origin + url.pathname;
 
                 const lines = text.split('\n');
                 for (let i = 0; i < lines.length; i++) {
                     let line = lines[i].trim();
-                    if (line && !line.startsWith('#')) {
-                        lines[i] = line.startsWith('http') ? line : basePath + line;
+                    if (line.startsWith('#EXT-X-MAP:URI="')) {
+                        lines[i] = line.replace(/URI="([^"]+)"/, (match, uri) => {
+                            if (uri.startsWith('data:')) return match;
+                            const absoluteUrl = uri.startsWith('http') ? uri : basePath + uri;
+                            // Si es Patreon (tiene sid), obligamos a que todo pase por el proxy
+                            if (sid) return `URI="${proxyPath}?url=${encodeURIComponent(absoluteUrl)}&sid=${encodeURIComponent(sid)}"`;
+                            return `URI="${absoluteUrl}"`; // Free mode: directo
+                        });
+                    }
+                    else if (line && !line.startsWith('#')) {
+                        const absoluteUrl = line.startsWith('http') ? line : basePath + line;
+                        if (sid) {
+                            lines[i] = `${proxyPath}?url=${encodeURIComponent(absoluteUrl)}&sid=${encodeURIComponent(sid)}`;
+                        } else {
+                            lines[i] = absoluteUrl; // Free mode: directo
+                        }
                     }
                 }
-                body = new TextEncoder().encode(lines.join('\n'));
+                
+                return new Response(lines.join('\n'), {
+                    status: res.status,
+                    headers: {
+                        ...corsHeaders,
+                        "Content-Type": contentType || "application/vnd.apple.mpegurl",
+                        "Cache-Control": "no-cache"
+                    }
+                });
+            } else {
+                // Si es el vídeo puro (.m4s), usamos Stream para no colapsar la memoria del Worker
+                return new Response(res.body, {
+                    status: res.status,
+                    headers: {
+                        ...corsHeaders,
+                        "Content-Type": contentType || "application/octet-stream",
+                        "Cache-Control": "public, max-age=3600"
+                    }
+                });
             }
-
-            return new Response(body, {
-                status: res.status,
-                headers: {
-                    ...corsHeaders,
-                    "Content-Type": contentType || "application/octet-stream",
-                    "Cache-Control": "no-cache"
-                }
-            });
         } catch (err) {
             return new Response(JSON.stringify({ error: "Proxy Error: " + err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
@@ -93,25 +116,31 @@ export async function onRequest(context) {
                 sid = decodeURIComponent(sid).replace(/['"]+/g, '').replace(/^angelthump\.sid=/, '').trim();
             }
 
-            // ==========================================
-            // MAGIA: EXTRAER EL IDENTIFIER REAL (SIEMPRE)
-            // ==========================================
             let realIdentifier = "SwnpX0RnA99YdRj0SPqs"; // Fallback seguro
             
-            // Robamos uno fresco de la web oficial SIEMPRE (para Free y Patreon por igual)
-            // Extraerlo del SID era un error, Angelthump usa identificadores propios de 20 caracteres.
-            try {
-                const playerRes = await fetch(`https://player.angelthump.com/?channel=${channel}`, {
-                    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
-                });
-                const html = await playerRes.text();
-                // Buscamos el identifier en el script de la página oficial de Angelthump
-                const match = html.match(/identifier\s*:\s*['"]([^'"]+)['"]/);
-                if (match && match[1]) {
-                    realIdentifier = match[1];
+            if (usePatreon && sid) {
+                // MAGIA PATREON: Angelthump exige que el identificador sea el principio de la cookie
+                let cleanSid = sid;
+                if (cleanSid.startsWith('s%3A')) cleanSid = decodeURIComponent(cleanSid);
+                if (cleanSid.startsWith('s:')) {
+                    realIdentifier = cleanSid.substring(2).split('.')[0];
+                } else {
+                    realIdentifier = cleanSid.split('.')[0];
                 }
-            } catch (e) {
-                console.log("Fallo al robar el identifier, usando fallback.");
+            } else {
+                // MAGIA FREE: Robamos uno fresco de la web
+                try {
+                    const playerRes = await fetch(`https://player.angelthump.com/?channel=${channel}`, {
+                        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+                    });
+                    const html = await playerRes.text();
+                    const match = html.match(/identifier\s*:\s*['"]([^'"]+)['"]/);
+                    if (match && match[1]) {
+                        realIdentifier = match[1];
+                    }
+                } catch (e) {
+                    console.log("Fallo al robar el identifier, usando fallback.");
+                }
             }
 
             const baseHeaders = {
@@ -154,7 +183,6 @@ export async function onRequest(context) {
             }
 
             // --- FETCH FINAL DEL TOKEN A VIGOR ---
-            // Aquí enviamos el identificador real que extrajimos de la web y la cookie si aplica
             const tokenHeaders = { ...baseHeaders, "identifier": realIdentifier };
             if (sessionCookie) tokenHeaders["Cookie"] = sessionCookie;
 
