@@ -34,7 +34,6 @@ export async function onRequest(context) {
       };
 
       const parsedData = parseCSV(csvText);
-      
       const headerRowIdx = parsedData.findIndex(row => row.some(c => typeof c === 'string' && (c.toLowerCase().includes('título') || c.toLowerCase().includes('title'))));
       const validHeaderIdx = headerRowIdx !== -1 ? headerRowIdx : 0;
       
@@ -52,7 +51,7 @@ export async function onRequest(context) {
 
       const rawRows = parsedData.slice(validHeaderIdx + 1).filter(r => r[idxTitle]);
 
-      // 4. Mapeamos a JSON limpio
+      // 4. Formatear y preparar los datos
       const items = rawRows.map(row => {
           let rawLink = '';
           if (idxLink !== -1 && row[idxLink] && typeof row[idxLink] === 'string' && row[idxLink].trim().includes('http')) {
@@ -86,9 +85,12 @@ export async function onRequest(context) {
 
       // Guardamos en la caché de Cloudflare para futuras peticiones
       context.waitUntil(cache.put(cacheKey, jsonResponse.clone()));
+      
       return jsonResponse;
 
-  } catch (err) {
-      return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+  } catch (error) {
+      return new Response(JSON.stringify({ error: error.message }), { 
+          status: 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } 
+      });
   }
 }

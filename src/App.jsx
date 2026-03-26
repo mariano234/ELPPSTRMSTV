@@ -2,11 +2,9 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Search, Home, Film, Download, X, Info, ChevronRight, ChevronLeft, AlertTriangle, Monitor, Layers, Star, Grid, List as ListIcon, Filter, ArrowDownWideNarrow, Globe, Calendar, Tv, Radio, Server } from 'lucide-react';
 
 // --- CONFIGURACIÓN ---
-const TMDB_API_KEY = "342815a2b6a677bbc29fd13a6e3c1c3a"; 
-const SHEET_ID = "104RB6GK9_m_nzIakTU3MJLaDJPwt9fYmfHF3ikyixFE";
 const CACHE_VERSION = "v2_multilang"; 
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; 
-const STREAM_CHANNEL = "elpintaunas"; 
+const STREAM_CHANNEL = "elpintaunas"; // Canal definitivo
 
 const LANGUAGE_MAP = {
   'es': 'Español', 'es-es': 'Español (España)', 'es-mx': 'Español (Latino)',
@@ -16,6 +14,7 @@ const LANGUAGE_MAP = {
   'fr': 'Francés', 'it': 'Italiano', 'de': 'Alemán', 'ja': 'Japonés', 'jp': 'Japonés', 'ko': 'Coreano', 'pt': 'Portugués'
 };
 
+// --- DICCIONARIO DE GÉNEROS ---
 const GENRE_TRANSLATIONS = {
     'Acción': { ca: 'Acció', gl: 'Acción', eu: 'Ekintza', es: 'Acción' },
     'Action': { ca: 'Acció', gl: 'Acción', eu: 'Ekintza', es: 'Acción' },
@@ -54,6 +53,7 @@ const GENRE_TRANSLATIONS = {
     'Western': { ca: 'Western', gl: 'Western', eu: 'Western', es: 'Western' }
 };
 
+// --- DICCIONARIO DE IDIOMAS DETALLE ---
 const LANG_TRANSLATIONS = {
     'es': {
         'Español': 'Español', 'Español (España)': 'Español (España)', 'Español (Latino)': 'Español (Latino)',
@@ -81,6 +81,7 @@ const LANG_TRANSLATIONS = {
     }
 };
 
+// --- DICCIONARIO DE INTERFAZ ---
 const UI_TRANSLATIONS = {
   'es': {
     inicio: 'INICIO', pelis: 'PELIS', series: 'SERIES', directos: 'DIRECTOS',
@@ -180,6 +181,7 @@ const UI_TRANSLATIONS = {
   }
 };
 
+// --- FUNCIÓN EXTRACTORA DE IDENTIFICADOR ---
 const extractIdentifier = (sid) => {
   if (!sid) return null;
   let str = sid;
@@ -226,7 +228,6 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
 
                 console.log("🛠️ [DEBUG] Payload que enviamos al proxy:", payload);
 
-                // LLAMADA AL PROXY CLOUDFLARE
                 const res = await fetch(`/api/angelthump`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -245,8 +246,6 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                 }
 
                 const rawM3u8 = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
-                
-                // LLAMADA GET PASANDO POR CLOUDFLARE
                 let m3u8Url = `/api/angelthump?url=${encodeURIComponent(rawM3u8)}`;
                 if (usePatreon && identifier) {
                     m3u8Url += `&identifier=${encodeURIComponent(identifier)}&sid=${encodeURIComponent(cleanSid)}`;
@@ -329,24 +328,6 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
 };
 
 // --- UTILIDADES ---
-const parseCSV = (text) => {
-  const rows = [];
-  let row = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    if (char === '"' && text[i + 1] === '"') { current += '"'; i++; }
-    else if (char === '"') { inQuotes = !inQuotes; }
-    else if (char === ',' && !inQuotes) { row.push(current); current = ''; }
-    else if (char === '\n' && !inQuotes) { row.push(current); rows.push(row); row = []; current = ''; }
-    else if (char !== '\r') { current += char; }
-  }
-  if (current !== '' || text[text.length - 1] === ',') row.push(current);
-  if (row.length > 0) rows.push(row);
-  return rows;
-};
-
 const formatVideoQuality = (raw) => {
   if (!raw) return 'SD';
   const s = raw.toLowerCase();
@@ -619,7 +600,7 @@ export default function App() {
   const [streamSid, setStreamSid] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [copiedPass, setCopiedPass] = useState(false);
-  const [usePatreon, setUsePatreon] = useState(false);
+  const [usePatreon, setUsePatreon] = useState(false); 
   
   const [visibleCount, setVisibleCount] = useState(100);
   const [sortBy, setSortBy] = useState('default');
@@ -732,7 +713,6 @@ export default function App() {
         setIsVerifying(true);
         setStreamPassword(t.verificando);
         
-        // LLAMADA AL BACKEND DE CLOUDFLARE
         fetch(`/api/verificar?code=${code}`)
             .then(async res => {
                 if (!res.ok) {
@@ -849,67 +829,6 @@ export default function App() {
     }).join(', ');
   };
 
-  const fetchTMDB = async (title, year, langToFetch) => {
-    try {
-      let cleanTitle = title.replace(/\[.*?\]/g, ' ').replace(/\(.*?\)/g, ' ').replace(/[\[\]\(\)]/g, '').replace(/!/g, '').replace(/\s1$/, '').trim();
-      const query = encodeURIComponent(cleanTitle);
-      const cleanYear = year ? year.toString().match(/\d{4}/)?.[0] : '';
-      
-      const tmdbLangMap = { 'es': 'es-ES', 'ca': 'ca-ES', 'gl': 'gl-ES', 'eu': 'eu-ES' };
-      const apiLang = tmdbLangMap[langToFetch] || 'es-ES';
-
-      let searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}&language=es-ES&primary_release_year=${cleanYear || ''}`);
-      let data = await searchRes.json();
-      
-      if ((!data.results || data.results.length === 0) && cleanYear) {
-         searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}&language=es-ES`);
-         data = await searchRes.json();
-      }
-      if ((!data.results || data.results.length === 0) && cleanTitle.match(/[:\-]/)) {
-         const shortTitle = cleanTitle.split(/[:\-]/)[0].trim();
-         searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(shortTitle)}&language=es-ES&primary_release_year=${cleanYear || ''}`);
-         data = await searchRes.json();
-      }
-      
-      if (data.results?.[0]) {
-        const tmdbId = data.results[0].id;
-        
-        let detailRes = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_API_KEY}&language=${apiLang}`);
-        let movie = await detailRes.json();
-
-        let fallbackRes = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_API_KEY}&language=es-ES`);
-        let movieEs = await fallbackRes.json();
-
-        if (!movie.overview && langToFetch !== 'es') {
-             movie.overview = movieEs.overview;
-             movie.title = movieEs.title;
-             movie.poster_path = movieEs.poster_path;
-             movie.backdrop_path = movieEs.backdrop_path;
-        } else {
-             if (!movie.poster_path) movie.poster_path = movieEs.poster_path;
-             if (!movie.backdrop_path) movie.backdrop_path = movieEs.backdrop_path;
-        }
-
-        const rawGenres = movie.genres?.length > 0 ? movie.genres : movieEs.genres;
-        const translatedGenres = rawGenres?.map(g => {
-            return GENRE_TRANSLATIONS[g.name]?.[langToFetch] || GENRE_TRANSLATIONS[g.name]?.['es'] || g.name;
-        }) || [];
-        
-        return {
-          tmdbTitle: movie.title, 
-          overview: movie.overview,
-          poster: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
-          backdrop: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
-          year: movie.release_date?.split('-')[0],
-          genres: translatedGenres,
-          collection: movie.belongs_to_collection ? { id: movie.belongs_to_collection.id, name: movie.belongs_to_collection.name, poster: movie.belongs_to_collection.poster_path ? `https://image.tmdb.org/t/p/w500${movie.belongs_to_collection.poster_path}` : null, backdrop: movie.belongs_to_collection.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.belongs_to_collection.backdrop_path}` : null } : null,
-          rating: movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'
-        };
-      }
-    } catch (e) { console.warn("TMDB Error:", e); }
-    return null;
-  };
-
   const fetchContent = async (currentLang) => {
     try {
       const forceRefresh = initParams.refresh;
@@ -927,28 +846,11 @@ export default function App() {
           } catch(e) {}
       }
 
-      const response = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`);
-      const csvText = await response.text();
-      const parsedData = parseCSV(csvText);
+      // 1. LLAMADA OPTIMIZADA A LA CACHÉ EN CLOUDFLARE
+      const libRes = await fetch(`/api/library${forceRefresh ? '?refresh=true' : ''}`);
+      if (!libRes.ok) throw new Error("Fallo al conectar con la base de datos.");
+      const rawRows = await libRes.json();
       
-      const headerRowIdx = parsedData.findIndex(row => row.some(c => typeof c === 'string' && (c.toLowerCase().includes('título') || c.toLowerCase().includes('title'))));
-      const validHeaderIdx = headerRowIdx !== -1 ? headerRowIdx : 0;
-      
-      const headers = parsedData[validHeaderIdx].map(h => (h || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
-      const getIdx = (keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
-      
-      const idxTitle = getIdx(['titulo', 'title']);
-      const idxYear = getIdx(['ano', 'year', 'año']);
-      const idxLang = getIdx(['idioma', 'lenguaje']);
-      const idxQual = getIdx(['calidad']);
-      const idxGen  = getIdx(['genero', 'género']);
-      
-      let idxLink = getIdx(['lnkf']);
-      if (idxLink === -1) {
-          idxLink = getIdx(['link final', 'url final', 'descarga']);
-      }
-
-      const rawRows = parsedData.slice(validHeaderIdx + 1).filter(r => r[idxTitle]);
       const chunkSize = 25; 
       const enriched = [];
       const translatedNoDesc = UI_TRANSLATIONS[currentLang].sin_descripcion;
@@ -956,25 +858,16 @@ export default function App() {
       for (let i = 0; i < rawRows.length; i += chunkSize) {
         const chunk = rawRows.slice(i, i + chunkSize);
         const chunkEnriched = await Promise.all(chunk.map(async (row, idx) => {
-          const title = row[idxTitle];
-          const year = row[idxYear] || '?';
+          const title = row.title;
+          const year = row.year || '?';
           const cacheKey = `${title.toLowerCase()}_${year}`;
           
-          let rawLink = '';
-          if (idxLink !== -1 && row[idxLink] && typeof row[idxLink] === 'string' && row[idxLink].trim().includes('http')) {
-              rawLink = row[idxLink]; 
-          } else {
-              const cellHttp = [...row].reverse().find(c => c && typeof c === 'string' && (c.trim().includes('http') || c.trim().includes('www.')));
-              if (cellHttp) rawLink = cellHttp;
-          }
-          
-          let finalLink = rawLink.trim();
-          if (!finalLink || finalLink.toLowerCase() === 'link' || finalLink.toLowerCase() === 'lnkf') finalLink = '#';
-          else if (finalLink !== '#' && !finalLink.startsWith('http')) finalLink = 'https://' + finalLink;
+          let finalLink = row.link || '#';
+          if (finalLink !== '#' && !finalLink.startsWith('http')) finalLink = 'https://' + finalLink;
 
-          const newQuality = formatVideoQuality(idxQual !== -1 ? row[idxQual] : '');
-          const newLang = idxLang !== -1 ? translateLangs(row[idxLang], currentLang) : 'N/A';
-          const newGenresCsv = (idxGen !== -1 && row[idxGen]) ? [GENRE_TRANSLATIONS[row[idxGen]]?.[currentLang] || row[idxGen]] : [GENRE_TRANSLATIONS['Otros']?.[currentLang] || "Otros"];
+          const newQuality = formatVideoQuality(row.quality);
+          const newLang = row.language ? translateLangs(row.language, currentLang) : 'N/A';
+          const fallbackGenre = row.rawGenre ? [GENRE_TRANSLATIONS[row.rawGenre]?.[currentLang] || row.rawGenre] : [GENRE_TRANSLATIONS['Otros']?.[currentLang] || "Otros"];
 
           if (existingItemsMap.has(cacheKey)) {
               const cachedItem = existingItemsMap.get(cacheKey);
@@ -987,7 +880,12 @@ export default function App() {
               };
           }
 
-          const tmdb = await fetchTMDB(title, year, currentLang);
+          // 2. LLAMADA OPTIMIZADA AL PROXY DE TMDB EN CLOUDFLARE
+          let tmdb = null;
+          try {
+              const tmdbRes = await fetch(`/api/tmdb?title=${encodeURIComponent(title)}&year=${year}&lang=${currentLang}`);
+              if (tmdbRes.ok) tmdb = await tmdbRes.json();
+          } catch(e) {}
           
           return {
             id: `item-${i + idx}`,
@@ -1001,7 +899,7 @@ export default function App() {
             videoQuality: newQuality,
             language: newLang,
             link: finalLink,
-            genres: tmdb?.genres?.length ? tmdb.genres : newGenresCsv,
+            genres: tmdb?.genres?.length ? tmdb.genres : fallbackGenre,
             collection: tmdb?.collection || null,
             rating: tmdb?.rating || 'N/A'
           };
@@ -1490,7 +1388,7 @@ export default function App() {
                         </p>
                         
                         <a 
-                           href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify"
+                           href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Fpruebaelppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify"
                            className={`font-bold py-2.5 px-6 rounded-md transition-all w-full shadow-lg hover:scale-105 flex items-center justify-center gap-2 text-sm shrink-0 ${
                                isVerifying ? 'opacity-50 pointer-events-none bg-[#5865F2] text-white' : 
                                isLogged ? 'bg-neutral-800 hover:bg-neutral-700 text-gray-300 border border-white/10' : 
@@ -1532,7 +1430,7 @@ export default function App() {
                                 <div className="flex bg-black/50 rounded-lg p-1 border border-white/5 mb-3">
                                     <button 
                                         onClick={() => setUsePatreon(true)}
-                                        disabled={!streamSid} 
+                                        disabled={!streamSid} // Si no tiene SID de Angelthump (porque falló o no existe), no puede usar Patreon
                                         className={`flex-1 py-2 text-[11px] font-bold rounded-md transition-all ${usePatreon ? 'bg-[#e5a00d] text-black shadow-md' : 'text-gray-400 hover:text-white'} ${!streamSid ? 'opacity-30 cursor-not-allowed' : ''}`}
                                     >
                                         {t.serv_patreon}
