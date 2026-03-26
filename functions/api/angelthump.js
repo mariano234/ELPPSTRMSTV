@@ -97,18 +97,32 @@ export async function onRequest(context) {
             // MAGIA: EXTRAER EL IDENTIFIER REAL
             // ==========================================
             let realIdentifier = "SwnpX0RnA99YdRj0SPqs"; // Fallback seguro
-            try {
-                const playerRes = await fetch(`https://player.angelthump.com/?channel=${channel}`, {
-                    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
-                });
-                const html = await playerRes.text();
-                // Buscamos el identifier en el script de la página oficial de Angelthump
-                const match = html.match(/identifier\s*:\s*['"]([^'"]+)['"]/);
-                if (match && match[1]) {
-                    realIdentifier = match[1];
+            
+            if (usePatreon && sid) {
+                // ¡EL SECRETO DEL PREMIUM! Angelthump usa Express Session.
+                // El identifier ES literalmente la primera parte de la cookie de sesión.
+                let cleanSid = sid;
+                if (cleanSid.startsWith('s%3A')) cleanSid = decodeURIComponent(cleanSid);
+                if (cleanSid.startsWith('s:')) {
+                    realIdentifier = cleanSid.substring(2).split('.')[0];
+                } else {
+                    realIdentifier = cleanSid.split('.')[0];
                 }
-            } catch (e) {
-                console.log("Fallo al robar el identifier, usando fallback.");
+            } else {
+                // Modo Free: Robamos uno fresco de la web
+                try {
+                    const playerRes = await fetch(`https://player.angelthump.com/?channel=${channel}`, {
+                        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+                    });
+                    const html = await playerRes.text();
+                    // Buscamos el identifier en el script de la página oficial de Angelthump
+                    const match = html.match(/identifier\s*:\s*['"]([^'"]+)['"]/);
+                    if (match && match[1]) {
+                        realIdentifier = match[1];
+                    }
+                } catch (e) {
+                    console.log("Fallo al robar el identifier, usando fallback.");
+                }
             }
 
             const baseHeaders = {
