@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Home, Film, Download, X, Info, ChevronRight, ChevronLeft, AlertTriangle, Monitor, Layers, Star, Grid, List as ListIcon, Filter, ArrowDownWideNarrow, Globe, Calendar, Tv, Radio, Server } from 'lucide-react';
+import { Search, Home, Film, Download, X, Info, ChevronRight, ChevronLeft, AlertTriangle, Monitor, Layers, Star, Grid, List as ListIcon, Filter, ArrowDownWideNarrow, Globe, Calendar, Tv, Radio, Server, Lock, CheckCircle, RefreshCw } from 'lucide-react';
 
 // --- CONFIGURACIÓN ---
+const TMDB_API_KEY = "342815a2b6a677bbc29fd13a6e3c1c3a"; 
 const CACHE_VERSION = "v2_multilang"; 
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; 
 const STREAM_CHANNEL = "elpintaunas"; // Canal definitivo
@@ -829,6 +830,68 @@ export default function App() {
     }).join(', ');
   };
 
+  // --- PETICIÓN DIRECTA A TMDB (Como pediste) ---
+  const fetchTMDB = async (title, year, langToFetch) => {
+    try {
+      let cleanTitle = title.replace(/\[.*?\]/g, ' ').replace(/\(.*?\)/g, ' ').replace(/[\[\]\(\)]/g, '').replace(/!/g, '').replace(/\s1$/, '').trim();
+      const query = encodeURIComponent(cleanTitle);
+      const cleanYear = year ? year.toString().match(/\d{4}/)?.[0] : '';
+      
+      const tmdbLangMap = { 'es': 'es-ES', 'ca': 'ca-ES', 'gl': 'gl-ES', 'eu': 'eu-ES' };
+      const apiLang = tmdbLangMap[langToFetch] || 'es-ES';
+
+      let searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}&language=es-ES&primary_release_year=${cleanYear || ''}`);
+      let data = await searchRes.json();
+      
+      if ((!data.results || data.results.length === 0) && cleanYear) {
+         searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${query}&language=es-ES`);
+         data = await searchRes.json();
+      }
+      if ((!data.results || data.results.length === 0) && cleanTitle.match(/[:\-]/)) {
+         const shortTitle = cleanTitle.split(/[:\-]/)[0].trim();
+         searchRes = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(shortTitle)}&language=es-ES&primary_release_year=${cleanYear || ''}`);
+         data = await searchRes.json();
+      }
+      
+      if (data.results?.[0]) {
+        const tmdbId = data.results[0].id;
+        
+        let detailRes = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_API_KEY}&language=${apiLang}`);
+        let movie = await detailRes.json();
+
+        let fallbackRes = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_API_KEY}&language=es-ES`);
+        let movieEs = await fallbackRes.json();
+
+        if (!movie.overview && langToFetch !== 'es') {
+             movie.overview = movieEs.overview;
+             movie.title = movieEs.title;
+             movie.poster_path = movieEs.poster_path;
+             movie.backdrop_path = movieEs.backdrop_path;
+        } else {
+             if (!movie.poster_path) movie.poster_path = movieEs.poster_path;
+             if (!movie.backdrop_path) movie.backdrop_path = movieEs.backdrop_path;
+        }
+
+        const rawGenres = movie.genres?.length > 0 ? movie.genres : movieEs.genres;
+        const translatedGenres = rawGenres?.map(g => {
+            return GENRE_TRANSLATIONS[g.name]?.[langToFetch] || GENRE_TRANSLATIONS[g.name]?.['es'] || g.name;
+        }) || [];
+        
+        return {
+          tmdbTitle: movie.title, 
+          overview: movie.overview,
+          poster: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
+          backdrop: movie.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.backdrop_path}` : null,
+          year: movie.release_date?.split('-')[0],
+          genres: translatedGenres,
+          collection: movie.belongs_to_collection ? { id: movie.belongs_to_collection.id, name: movie.belongs_to_collection.name, poster: movie.belongs_to_collection.poster_path ? `https://image.tmdb.org/t/p/w500${movie.belongs_to_collection.poster_path}` : null, backdrop: movie.belongs_to_collection.backdrop_path ? `https://image.tmdb.org/t/p/w1280${movie.belongs_to_collection.backdrop_path}` : null } : null,
+          rating: movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'
+        };
+      }
+    } catch (e) { console.warn("TMDB Error:", e); }
+    return null;
+  };
+
   const fetchContent = async (currentLang) => {
     try {
       const forceRefresh = initParams.refresh;
@@ -846,7 +909,7 @@ export default function App() {
           } catch(e) {}
       }
 
-      // 1. LLAMADA OPTIMIZADA A LA CACHÉ EN CLOUDFLARE
+      // LLAMADA AL BACKEND LIBRARY (Caché de CSV de Cloudflare)
       const libRes = await fetch(`/api/library${forceRefresh ? '?refresh=true' : ''}`);
       if (!libRes.ok) throw new Error("Fallo al conectar con la base de datos.");
       const rawRows = await libRes.json();
@@ -863,7 +926,6 @@ export default function App() {
           const cacheKey = `${title.toLowerCase()}_${year}`;
           
           let finalLink = row.link || '#';
-          if (finalLink !== '#' && !finalLink.startsWith('http')) finalLink = 'https://' + finalLink;
 
           const newQuality = formatVideoQuality(row.quality);
           const newLang = row.language ? translateLangs(row.language, currentLang) : 'N/A';
@@ -880,12 +942,8 @@ export default function App() {
               };
           }
 
-          // 2. LLAMADA OPTIMIZADA AL PROXY DE TMDB EN CLOUDFLARE
-          let tmdb = null;
-          try {
-              const tmdbRes = await fetch(`/api/tmdb?title=${encodeURIComponent(title)}&year=${year}&lang=${currentLang}`);
-              if (tmdbRes.ok) tmdb = await tmdbRes.json();
-          } catch(e) {}
+          // TMDB Directo
+          const tmdb = await fetchTMDB(title, year, currentLang);
           
           return {
             id: `item-${i + idx}`,
