@@ -180,6 +180,22 @@ const UI_TRANSLATIONS = {
   }
 };
 
+const extractIdentifier = (sid) => {
+  if (!sid) return null;
+  let str = sid;
+  // Decodificamos si viene como URL encoded (s%3A)
+  if (str.startsWith('s%3A')) str = decodeURIComponent(str);
+  // Formato Express Session: s:SessionID.Signature
+  if (str.startsWith('s:')) return str.substring(2).split('.')[0];
+  // Formato JWT: eyJhbG...
+  if (str.startsWith('ey')) {
+      try {
+          const decoded = JSON.parse(atob(str.split('.')[1]));
+          return decoded.id || decoded.userId || decoded.sub || str;
+      } catch (e) { return str; }
+  }
+  return str;
+};
 
 // --- COMPONENTE REPRODUCTOR NATIVO HLS ---
 const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t }) => {
@@ -194,12 +210,13 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
             setError(null);
             setStatus('Autenticando con Angelthump...');
             try {
+                // Limpiamos la SID por si el bot incluye la palabra 'angelthump.sid='
                 const cleanSid = streamSid ? streamSid.replace('angelthump.sid=', '') : '';
+                
+                // 1. Evitamos enviar frases de la interfaz a Angelthump
                 const cleanPass = streamPassword ? streamPassword.trim() : '';
                 const isValidPass = cleanPass && cleanPass !== t.sin_pass && !cleanPass.includes('••••') && !cleanPass.includes('❌');
                 
-                // NOTA VITAL: ¡Ya no enviamos el identifier falso desde React!
-                // Solo enviamos lo estrictamente necesario. Cloudflare se encargará del resto.
                 const payload = {
                     channel: channel,
                     patreon: usePatreon
@@ -211,7 +228,8 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                     payload.password = cleanPass;
                 }
 
-                // Cambiado para asegurar que llama a la ruta de Cloudflare Pages
+                console.log("🛠️ [DEBUG] Payload que enviamos al proxy:", payload);
+
                 const res = await fetch(`/api/angelthump`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -229,17 +247,19 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                     throw new Error("Angelthump no devolvió ningún token válido.");
                 }
 
-                // Generamos la URL original con el token válido
                 const rawM3u8 = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
                 
-                // Redirigimos al proxy GET de Cloudflare para evitar bloqueos
                 let m3u8Url = `/api/angelthump?url=${encodeURIComponent(rawM3u8)}`;
-                
-                if (usePatreon) {
-                    // Para el Premium, adjuntamos el SID para que Cloudflare lo arrastre a cada fragmento .m4s
+                if (usePatreon && cleanSid) {
                     m3u8Url += `&sid=${encodeURIComponent(cleanSid)}`;
                 }
+                if (data.identifier) {
+                    m3u8Url += `&identifier=${encodeURIComponent(data.identifier)}`;
+                }
 
+                console.log("🔗 [DEBUG] URL del vídeo pasando por proxy:", m3u8Url);
+
+                // Aquí ya inicializas HLS.js con la nueva 'm3u8Url'
                 if (!window.Hls) {
                     await new Promise((resolve, reject) => {
                         const script = document.createElement('script');
