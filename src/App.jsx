@@ -5,7 +5,7 @@ import { Search, Home, Film, Download, X, Info, ChevronRight, ChevronLeft, Alert
 const TMDB_API_KEY = "342815a2b6a677bbc29fd13a6e3c1c3a"; 
 const CACHE_VERSION = "v2_multilang"; 
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; 
-const STREAM_CHANNEL = "elpintaunas"; // Canal definitivo
+const STREAM_CHANNEL = "elpintaunas"; 
 
 const LANGUAGE_MAP = {
   'es': 'Español', 'es-es': 'Español (España)', 'es-mx': 'Español (Latino)',
@@ -15,7 +15,6 @@ const LANGUAGE_MAP = {
   'fr': 'Francés', 'it': 'Italiano', 'de': 'Alemán', 'ja': 'Japonés', 'jp': 'Japonés', 'ko': 'Coreano', 'pt': 'Portugués'
 };
 
-// --- DICCIONARIO DE GÉNEROS ---
 const GENRE_TRANSLATIONS = {
     'Acción': { ca: 'Acció', gl: 'Acción', eu: 'Ekintza', es: 'Acción' },
     'Action': { ca: 'Acció', gl: 'Acción', eu: 'Ekintza', es: 'Acción' },
@@ -54,7 +53,6 @@ const GENRE_TRANSLATIONS = {
     'Western': { ca: 'Western', gl: 'Western', eu: 'Western', es: 'Western' }
 };
 
-// --- DICCIONARIO DE IDIOMAS DETALLE ---
 const LANG_TRANSLATIONS = {
     'es': {
         'Español': 'Español', 'Español (España)': 'Español (España)', 'Español (Latino)': 'Español (Latino)',
@@ -82,7 +80,6 @@ const LANG_TRANSLATIONS = {
     }
 };
 
-// --- DICCIONARIO DE INTERFAZ ---
 const UI_TRANSLATIONS = {
   'es': {
     inicio: 'INICIO', pelis: 'PELIS', series: 'SERIES', directos: 'DIRECTOS',
@@ -101,9 +98,9 @@ const UI_TRANSLATIONS = {
     sin_descripcion: 'Sin descripción disponible.', sinc_biblio: 'Sincronizando con tu biblioteca...',
     calidad: 'Calidad', idiomas: 'Idiomas', año: 'Año', error_fallo: 'Vaya, algo ha fallado',
     proximamente: 'Próximamente...', prep_series: 'Estamos preparando todo el catálogo de series para integrarlo en la plataforma. ¡Vuelve muy pronto!',
-    acceso_premium: 'Acceso Premium', pass_directo: 'Contraseña del Directo',
-    desc_directo: 'El directo está protegido. Verifica que tienes el rol requerido en nuestro servidor de Discord para obtener la contraseña actual.',
-    verificando: 'Verificando...', refrescar_pass: '🔄 Refrescar Contraseña', verificar_rol: 'Verificar mi Rol en Discord',
+    acceso_premium: 'Acceso Privado al Directo', pass_directo: 'Contraseña del Directo',
+    desc_directo: 'El directo está protegido. Verifica que tienes el rol requerido en nuestro servidor de Discord para desbloquear el reproductor.',
+    verificando: 'Verificando...', refrescar_pass: 'Refrescar Contraseña', verificar_rol: 'Verificar mi Rol en Discord',
     clave_reproductor: 'Clave del Reproductor', intro_clave: 'La contraseña se ha detectado y se inyectará automáticamente en el reproductor.',
     activacion_premium: 'Opciones de Servidor', stream_desbloqueado: '¡Has desbloqueado el reproductor nativo! Disfruta del directo sin restricciones.',
     vacio: 'Vacío', sin_pass: 'Sin Contraseña', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normal (Público)'
@@ -125,9 +122,9 @@ const UI_TRANSLATIONS = {
     sin_descripcion: 'Sense descripció disponible.', sinc_biblio: 'Sincronitzant amb la teva biblioteca...',
     calidad: 'Qualitat', idiomas: 'Idiomes', año: 'Any', error_fallo: 'Vaja, alguna cosa ha fallat',
     proximamente: 'Aviat...', prep_series: 'Estem preparant tot el catàleg de sèries per integrar-lo a la plataforma. Torna molt aviat!',
-    acceso_premium: 'Accés Premium', pass_directo: 'Contrasenya del Directe',
-    desc_directo: 'El directe està protegit. Verifica que tens el rol requerit al nostre servidor de Discord per obtenir la contrasenya actual.',
-    verificando: 'Verificant...', refrescar_pass: '🔄 Refrescar Contrasenya', verificar_rol: 'Verificar el meu Rol a Discord',
+    acceso_premium: 'Accés Privat al Directe', pass_directo: 'Contrasenya del Directe',
+    desc_directo: 'El directe està protegit. Verifica que tens el rol requerit al nostre servidor de Discord per desbloquejar el reproductor.',
+    verificando: 'Verificant...', refrescar_pass: 'Refrescar Contrasenya', verificar_rol: 'Verificar el meu Rol a Discord',
     clave_reproductor: 'Clau del Reproductor', intro_clave: 'La contrasenya s\'ha detectat i s\'injectarà automàticament al reproductor.',
     activacion_premium: 'Opcions de Servidor', stream_desbloqueado: 'Has desbloquejat el reproductor natiu! Gaudeix del directe sense restriccions.',
     vacio: 'Buit', sin_pass: 'Sense Contrasenya', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normal (Públic)'
@@ -149,9 +146,9 @@ const UI_TRANSLATIONS = {
     sin_descripcion: 'Sen descrición dispoñible.', sinc_biblio: 'Sincronizando coa túa biblioteca...',
     calidad: 'Calidade', idiomas: 'Idiomas', año: 'Ano', error_fallo: 'Oes, algo fallou',
     proximamente: 'Proximamente...', prep_series: 'Estamos a preparar todo o catálogo de series para integralo na plataforma. Volve moi pronto!',
-    acceso_premium: 'Acceso Premium', pass_directo: 'Contrasinal do Directo',
-    desc_directo: 'O directo está protexido. Verifica que tes o rol requirido no noso servidor de Discord para obter o contrasinal actual.',
-    verificando: 'Verificando...', refrescar_pass: '🔄 Refrescar Contrasinal', verificar_rol: 'Verificar o meu Rol en Discord',
+    acceso_premium: 'Acceso Privado ao Directo', pass_directo: 'Contrasinal do Directo',
+    desc_directo: 'O directo está protexido. Verifica que tes o rol requirido no noso servidor de Discord para desbloquear o reprodutor.',
+    verificando: 'Verificando...', refrescar_pass: 'Refrescar Contrasinal', verificar_rol: 'Verificar o meu Rol en Discord',
     clave_reproductor: 'Clave do Reprodutor', intro_clave: 'O contrasinal detectouse e inxectarase automaticamente no reprodutor.',
     activacion_premium: 'Opcións de Servidor', stream_desbloqueado: 'Desbloqueaches o reprodutor nativo! Goza do directo sen restriccións.',
     vacio: 'Baleiro', sin_pass: 'Sen Contrasinal', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normal (Público)'
@@ -173,16 +170,15 @@ const UI_TRANSLATIONS = {
     sin_descripcion: 'Ez dago deskribapenik eskuragarri.', sinc_biblio: 'Zure liburutegiarekin sinkronizatzen...',
     calidad: 'Kalitatea', idiomas: 'Hizkuntzak', año: 'Urtea', error_fallo: 'Ene, zerbaitek huts egin du',
     proximamente: 'Laster...', prep_series: 'Telesailen katalogo osoa prestatzen ari gara plataforman integratzeko. Itzuli laster!',
-    acceso_premium: 'Premium Sarbidea', pass_directo: 'Zuzenekoaren Pasahitza',
-    desc_directo: 'Zuzenekoa babestuta dago. Egiaztatu Discord zerbitzarian beharrezko rola duzula uneko pasahitza lortzeko.',
-    verificando: 'Egiaztatzen...', refrescar_pass: '🔄 Pasahitza Freskatu', verificar_rol: 'Nire Rola Discord-en Egiaztatu',
+    acceso_premium: 'Sarbide Pribatua Zuzenekoan', pass_directo: 'Zuzenekoaren Pasahitza',
+    desc_directo: 'Zuzenekoa babestuta dago. Egiaztatu Discord zerbitzarian beharrezko rola duzula erreproduzitzailea desblokeatzeko.',
+    verificando: 'Egiaztatzen...', refrescar_pass: 'Pasahitza Freskatu', verificar_rol: 'Nire Rola Discord-en Egiaztatu',
     clave_reproductor: 'Erreproduzitzailearen Gakoa', intro_clave: 'Pasahitza atzeman da eta automatikoki txertatuko da erreproduzitzailean.',
     activacion_premium: 'Zerbitzari Aukerak', stream_desbloqueado: 'Erreproduzitzaile natiboa desblokeatu duzu! Gozatu zuzenekoaz murrizketarik gabe.',
     vacio: 'Hutsik', sin_pass: 'Pasahitzik Ez', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normala (Publikoa)'
   }
 };
 
-// --- FUNCIÓN EXTRACTORA DE IDENTIFICADOR ---
 const extractIdentifier = (sid) => {
   if (!sid) return null;
   let str = sid;
@@ -227,8 +223,6 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                     payload.password = cleanPass;
                 }
 
-                console.log("🛠️ [DEBUG] Payload que enviamos al proxy:", payload);
-
                 const res = await fetch(`/api/angelthump`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -251,8 +245,6 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                 if (usePatreon && identifier) {
                     m3u8Url += `&identifier=${encodeURIComponent(identifier)}&sid=${encodeURIComponent(cleanSid)}`;
                 }
-
-                console.log("🔗 [DEBUG] URL del vídeo pasando por proxy:", m3u8Url);
 
                 if (!window.Hls) {
                     await new Promise((resolve, reject) => {
@@ -309,7 +301,7 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
     }, [streamSid, streamPassword, channel, usePatreon]);
 
     return (
-        <div className="w-full h-full bg-black relative flex items-center justify-center">
+        <div className="w-full h-full bg-black relative flex items-center justify-center rounded-2xl overflow-hidden">
             {status && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-10 flex-col gap-4">
                     <div className="w-10 h-10 border-4 border-[#e5a00d] border-t-transparent rounded-full animate-spin"></div>
@@ -597,7 +589,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState('grid'); 
 
   // ESTADOS DE REPRODUCTOR
-  const [streamPassword, setStreamPassword] = useState("••••••••••••");
+  const [streamPassword, setStreamPassword] = useState("");
   const [streamSid, setStreamSid] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [copiedPass, setCopiedPass] = useState(false);
@@ -798,7 +790,7 @@ export default function App() {
               sessionStorage.removeItem('stream_password');
               sessionStorage.removeItem('stream_sid');
               sessionStorage.removeItem('stream_auth_time');
-              setStreamPassword("••••••••••••");
+              setStreamPassword("");
               setStreamSid(null);
               setUsePatreon(false);
           }
@@ -830,7 +822,7 @@ export default function App() {
     }).join(', ');
   };
 
-  // --- PETICIÓN DIRECTA A TMDB (Como pediste) ---
+  // --- PETICIÓN DIRECTA A TMDB ---
   const fetchTMDB = async (title, year, langToFetch) => {
     try {
       let cleanTitle = title.replace(/\[.*?\]/g, ' ').replace(/\(.*?\)/g, ' ').replace(/[\[\]\(\)]/g, '').replace(/!/g, '').replace(/\s1$/, '').trim();
@@ -909,7 +901,6 @@ export default function App() {
           } catch(e) {}
       }
 
-      // LLAMADA AL BACKEND LIBRARY (Caché de CSV de Cloudflare)
       const libRes = await fetch(`/api/library${forceRefresh ? '?refresh=true' : ''}`);
       if (!libRes.ok) throw new Error("Fallo al conectar con la base de datos.");
       const rawRows = await libRes.json();
@@ -942,7 +933,6 @@ export default function App() {
               };
           }
 
-          // TMDB Directo
           const tmdb = await fetchTMDB(title, year, currentLang);
           
           return {
@@ -1404,111 +1394,110 @@ export default function App() {
       ) : (
         <>
           {activeTab === 'directos' && (
-            <div className="pt-24 md:pt-[5.5rem] px-4 md:px-12 flex flex-col lg:flex-row gap-4 md:gap-6 h-[calc(100vh-1rem)] pb-4 md:pb-6 lg:pb-8 animate-in fade-in duration-500 w-full">
-                
-                {/* REPRODUCTOR INTELIGENTE: Si está logueado renderiza el nativo. Si no, renderiza el de Angelthump para pedirle el inicio de sesión. */}
-                <div className="flex-1 bg-black rounded-xl overflow-hidden border border-white/10 relative shadow-2xl min-h-[40vh] lg:min-h-0 lg:h-full flex items-center justify-center group/player">
-                    <div className="absolute inset-0 w-full h-full">
-                        {isLogged ? (
-                            <NativeStreamPlayer streamSid={streamSid} streamPassword={streamPassword} channel={STREAM_CHANNEL} usePatreon={usePatreon} t={t} />
-                        ) : (
-                            <iframe title="Player" allow="autoplay; fullscreen" src={`https://player.angelthump.com/?channel=${STREAM_CHANNEL}`} seamless="seamless" style={{ border: 0, margin: 0, overflow: 'hidden', height: '100%', width: '100%' }}></iframe>
-                        )}
-                    </div>
-                    
-                    {/* Indicador visual de servidor en la esquina del reproductor */}
-                    {isLogged && (
-                        <div className="absolute top-4 left-4 z-30 pointer-events-none opacity-0 group-hover/player:opacity-100 transition-opacity">
-                            <span className="bg-black/60 backdrop-blur-md border border-white/10 text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-2 uppercase tracking-widest shadow-lg">
-                                <Server size={12} className={usePatreon ? 'text-[#e5a00d]' : 'text-blue-400'} /> 
-                                {usePatreon ? t.serv_patreon : t.serv_normal}
-                            </span>
-                        </div>
-                    )}
-                </div>
-                
-                <div className="w-full lg:w-[350px] xl:w-[400px] bg-[#36393f] rounded-xl overflow-hidden border border-white/10 flex flex-col shadow-2xl shrink-0 h-auto lg:h-full overflow-y-auto">
-                    <div className="bg-[#202225] p-3 border-b border-black/20 flex justify-center items-center shrink-0">
-                       <span className="font-bold text-white text-sm flex items-center gap-2">
-                           <Layers size={16} className="text-[#5865F2]" /> {t.acceso_premium}
-                       </span>
-                    </div>
-                    
-                    <div className="flex flex-col flex-1 p-4 md:p-5 justify-start items-center text-center">
-                        <div className="bg-[#5865F2]/10 p-3 rounded-full mb-3 border border-[#5865F2]/30 shrink-0">
-                            <svg className="w-8 h-8 text-[#5865F2]" fill="currentColor" viewBox="0 0 127.14 96.36">
-                                <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77.7,77.7,0,0,0,6.89,11.1,105.25,105.25,0,0,0,32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.56,65.3c-5.36,0-9.8-4.83-9.8-10.74s4.33-10.74,9.8-10.74,9.84,4.83,9.8,10.74C52.4,60.47,48,65.3,42.56,65.3Zm42,0c-5.36,0-9.8-4.83-9.8-10.74s4.33-10.74,9.8-10.74,9.84,4.83,9.8,10.74C94.4,60.47,90,65.3,84.56,65.3Z"/>
-                            </svg>
-                        </div>
-                        <h3 className="text-xl font-black text-white mb-1.5 shrink-0">{t.pass_directo}</h3>
-                        <p className="text-gray-400 text-[11px] md:text-xs mb-4 leading-relaxed shrink-0">
-                            {t.desc_directo}
-                        </p>
-                        
-                        <a 
-                           href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Fpruebaelppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify"
-                           className={`font-bold py-2.5 px-6 rounded-md transition-all w-full shadow-lg hover:scale-105 flex items-center justify-center gap-2 text-sm shrink-0 ${
-                               isVerifying ? 'opacity-50 pointer-events-none bg-[#5865F2] text-white' : 
-                               isLogged ? 'bg-neutral-800 hover:bg-neutral-700 text-gray-300 border border-white/10' : 
-                               'bg-[#5865F2] hover:bg-[#4752C4] text-white'
-                           }`}
-                        >
-                            {isVerifying ? t.verificando : (isLogged ? t.refrescar_pass : t.verificar_rol)}
-                        </a>
-      
-                        <div className="mt-4 w-full bg-black/40 border border-white/5 rounded-xl p-3.5 transition-all flex flex-col items-center shadow-inner shrink-0">
-                            <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-2.5 flex items-center gap-1">
-                                <AlertTriangle size={12} className="text-[#e5a00d]" /> {t.clave_reproductor}
-                            </span>
-                            <div 
-                                className={`bg-black/60 px-3 py-2.5 rounded-lg border w-full flex items-center justify-center relative group transition-colors ${isLogged ? 'cursor-pointer hover:border-[#e5a00d]/50 border-white/10' : 'border-white/5'}`}
-                                onClick={handleCopyPass}
-                            >
-                                <span className={`text-base md:text-lg font-mono font-bold text-center break-all transition-colors ${
-                                    !streamPassword ? 'text-red-500 text-sm' : 
-                                    streamPassword.includes('•') ? 'text-gray-600 blur-[2px] select-none' : 
-                                    (streamPassword.includes('Verificando') || streamPassword.includes('Verificant') || streamPassword.includes('Egiaztatzen')) ? 'text-yellow-500 animate-pulse' : 
-                                    streamPassword.includes('❌') ? 'text-red-500 text-sm' : 
-                                    'text-[#e5a00d] drop-shadow-[0_0_8px_rgba(229,160,13,0.5)] group-hover:text-yellow-400'
-                                }`}>
-                                    {copiedPass ? "¡Copiado!" : (streamPassword || `❌ ${t.vacio}`)}
-                                </span>
-                            </div>
-                            <p className="text-[9px] text-[#e5a00d]/80 mt-2.5 text-center leading-relaxed font-bold px-2">
-                                {isLogged ? t.intro_clave : t.intro_clave.replace('automáticamente', 'manualmente')}
-                            </p>
-                        </div>
+             <div className="pt-24 md:pt-[5.5rem] px-4 md:px-12 max-w-7xl mx-auto flex flex-col gap-6 w-full animate-in fade-in duration-500">
+                 
+                 <div className="flex items-center justify-between mb-2">
+                     <div className="flex items-center gap-3">
+                         <Radio size={28} className="text-[#e5a00d]" />
+                         <h2 className="text-2xl md:text-3xl font-black text-white">Directo <span className="text-[#e5a00d]">VIP</span></h2>
+                     </div>
+                 </div>
 
-                        {isLogged && (
-                            <div className="mt-4 w-full bg-black/40 border border-[#e5a00d]/30 rounded-xl p-4 transition-all animate-in fade-in zoom-in duration-300 shadow-inner shrink-0">
-                                <span className="text-[12px] text-[#e5a00d] uppercase tracking-widest font-black flex items-center gap-2 justify-center mb-3">
-                                    <Server size={16} /> {t.activacion_premium}
-                                </span>
-                                
-                                <div className="flex bg-black/50 rounded-lg p-1 border border-white/5 mb-3">
-                                    <button 
-                                        onClick={() => setUsePatreon(true)}
-                                        disabled={!streamSid} // Si no tiene SID de Angelthump (porque falló o no existe), no puede usar Patreon
-                                        className={`flex-1 py-2 text-[11px] font-bold rounded-md transition-all ${usePatreon ? 'bg-[#e5a00d] text-black shadow-md' : 'text-gray-400 hover:text-white'} ${!streamSid ? 'opacity-30 cursor-not-allowed' : ''}`}
-                                    >
-                                        {t.serv_patreon}
-                                    </button>
-                                    <button 
-                                        onClick={() => setUsePatreon(false)}
-                                        className={`flex-1 py-2 text-[11px] font-bold rounded-md transition-all ${!usePatreon ? 'bg-white/20 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
-                                    >
-                                        {t.serv_normal}
-                                    </button>
-                                </div>
+                 <div className="w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 relative group/player">
+                     {isLogged ? (
+                         <NativeStreamPlayer streamSid={streamSid} streamPassword={streamPassword} channel={STREAM_CHANNEL} usePatreon={usePatreon} t={t} />
+                     ) : (
+                         <iframe title="Player" allow="autoplay; fullscreen" src={`https://player.angelthump.com/?channel=${STREAM_CHANNEL}`} seamless="seamless" style={{ border: 0, margin: 0, overflow: 'hidden', height: '100%', width: '100%' }}></iframe>
+                     )}
+                     {isLogged && (
+                          <div className="absolute top-4 left-4 z-30 pointer-events-none opacity-0 group-hover/player:opacity-100 transition-opacity">
+                              <span className="bg-black/60 backdrop-blur-md border border-white/10 text-white text-xs font-bold px-4 py-2 rounded-full flex items-center gap-2 uppercase tracking-widest shadow-lg">
+                                  <Server size={14} className={usePatreon ? 'text-[#e5a00d]' : 'text-blue-400'} /> 
+                                  {usePatreon ? t.serv_patreon : t.serv_normal}
+                              </span>
+                          </div>
+                      )}
+                 </div>
 
-                                <p className="text-[10px] text-gray-400 leading-relaxed text-center font-medium">
-                                    {t.stream_desbloqueado}
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
+                 {/* TARJETA DISCORD (DISEÑO HORIZONTAL LIMPIO) */}
+                 <div className="w-full bg-[#1a1a1c] rounded-2xl border border-white/5 p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 md:gap-10 shadow-xl">
+                     <div className="flex-1 text-center md:text-left">
+                         <h3 className="text-xl md:text-2xl font-black text-white mb-2 flex items-center justify-center md:justify-start gap-2">
+                             <Lock size={20} className="text-[#e5a00d]"/> {t.acceso_premium}
+                         </h3>
+                         <p className="text-gray-400 text-sm md:text-base leading-relaxed">
+                             {t.desc_directo}
+                         </p>
+                     </div>
+                     
+                     <div className="w-full md:w-auto flex flex-col items-center gap-4 shrink-0">
+                         {/* ENLACE EXACTO SOLICITADO */}
+                         <a 
+                             href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify"
+                             className={`font-bold py-3 px-8 rounded-xl transition-all w-full md:w-auto shadow-lg hover:scale-105 flex items-center justify-center gap-3 text-sm md:text-base ${
+                                 isVerifying ? 'opacity-50 pointer-events-none bg-[#5865F2] text-white' : 
+                                 isLogged ? 'bg-neutral-800 hover:bg-neutral-700 text-white border border-white/10' : 
+                                 'bg-[#5865F2] hover:bg-[#4752C4] text-white'
+                             }`}
+                          >
+                              {isVerifying ? (
+                                  <><RefreshCw className="animate-spin" size={20} /> {t.verificando}</>
+                              ) : isLogged ? (
+                                  <><RefreshCw size={20} /> {t.refrescar_pass}</>
+                              ) : (
+                                  <>
+                                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 127.14 96.36">
+                                          <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77.7,77.7,0,0,0,6.89,11.1,105.25,105.25,0,0,0,32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.56,65.3c-5.36,0-9.8-4.83-9.8-10.74s4.33-10.74,9.8-10.74,9.84,4.83,9.8,10.74C52.4,60.47,48,65.3,42.56,65.3Zm42,0c-5.36,0-9.8-4.83-9.8-10.74s4.33-10.74,9.8-10.74,9.84,4.83,9.8,10.74C94.4,60.47,90,65.3,84.56,65.3Z"/>
+                                      </svg>
+                                      {t.verificar_rol}
+                                  </>
+                              )}
+                          </a>
+                          
+                          {/* PASS Y CLICK PARA COPIAR EN ESTILO LIMPIO */}
+                          {isLogged && (
+                              <div 
+                                  className="bg-black/50 px-4 py-2.5 rounded-lg border border-white/10 w-full flex items-center justify-between cursor-pointer hover:border-[#e5a00d]/50 group transition-all"
+                                  onClick={handleCopyPass}
+                                  title="Copiar contraseña"
+                              >
+                                  <span className="text-gray-400 text-xs uppercase font-bold tracking-wider">Pass:</span>
+                                  <span className={`font-mono font-bold ml-3 ${copiedPass ? 'text-green-400' : 'text-[#e5a00d]'}`}>
+                                      {copiedPass ? "¡COPIADO!" : streamPassword}
+                                  </span>
+                              </div>
+                          )}
+                     </div>
+                 </div>
+
+                 {/* OPCIONES DE SERVIDOR SI ESTÁ LOGUEADO */}
+                 {isLogged && (
+                      <div className="w-full bg-[#1a1a1c] rounded-2xl border border-[#e5a00d]/20 p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl mb-10">
+                          <div className="flex items-center gap-3">
+                              <CheckCircle className="text-[#e5a00d]" size={24} />
+                              <div>
+                                  <h4 className="text-white font-bold">{t.stream_desbloqueado.split('!')[0]}!</h4>
+                                  <p className="text-gray-400 text-sm">Cambia de servidor en tiempo real si experimentas cortes.</p>
+                              </div>
+                          </div>
+                          <div className="flex bg-black p-1 rounded-xl border border-white/10 shrink-0">
+                              <button 
+                                  onClick={() => setUsePatreon(true)}
+                                  disabled={!streamSid}
+                                  className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all ${usePatreon ? 'bg-[#e5a00d] text-black shadow-md' : 'text-gray-400 hover:text-white'} ${!streamSid ? 'opacity-30 cursor-not-allowed' : ''}`}
+                              >
+                                  {t.serv_patreon}
+                              </button>
+                              <button 
+                                  onClick={() => setUsePatreon(false)}
+                                  className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all ${!usePatreon ? 'bg-white/10 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
+                              >
+                                  {t.serv_normal}
+                              </button>
+                          </div>
+                      </div>
+                 )}
+              </div>
           )}
 
           {activeTab === 'series' && (
