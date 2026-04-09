@@ -142,7 +142,7 @@ const UI_TRANSLATIONS = {
   },
   'gl': {
     inicio: 'INICIO', pelis: 'PELIS', series: 'SERIES', directos: 'DIRECTOS',
-    buscar: 'Buscar películas...', recomendados: 'Recomendados de hoxe',
+    buscar: 'Buscar...', recomendados: 'Recomendados de hoxe',
     mejor_valoradas: 'Mellor Valoradas', ultimos: 'Últimos Lanzamentos',
     sagas: 'Sagas e Coleccións', ver_todos: 'Ver todos',
     filtro_genero: '+ Xénero', filtro_calidad: '+ Calidade', filtro_idioma: '+ Idioma',
@@ -169,7 +169,7 @@ const UI_TRANSLATIONS = {
   },
   'eu': {
     inicio: 'HASIERA', pelis: 'FILMAK', series: 'TELESAILAK', directos: 'ZUZENEKOAK',
-    buscar: 'Filmak bilatu...', recomendados: 'Gaurko gomendioak',
+    buscar: 'Bilatu...', recomendados: 'Gaurko gomendioak',
     mejor_valoradas: 'Balorazio onenak', ultimos: 'Azken Argitalpenak',
     sagas: 'Sagak eta Bildumak', ver_todos: 'Ikusi guztiak',
     filtro_genero: '+ Generoa', filtro_calidad: '+ Kalitatea', filtro_idioma: '+ Hizkuntza',
@@ -720,7 +720,7 @@ export default function App() {
     }
     link.href = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍿</text></svg>";
     
-    const handleScroll = () => setIsScrolled(window.scrollY > 50);
+    const handleScroll = () => setIsScrolled(window.scrollY > 30);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -843,7 +843,7 @@ export default function App() {
                                 if (rawSid.includes('angelthump.sid=')) {
                                     rawSid = rawSid.split('angelthump.sid=')[1].trim();
                                 }
-                                if (rawSid) rawSid = rawSid.split(';')[0].trim(); // LIMPIEZA EXTRA DE SEMICOLONS
+                                if (rawSid) rawSid = rawSid.split(';')[0].trim(); 
                                 finalSid = rawSid;
                             }
                         }
@@ -856,7 +856,7 @@ export default function App() {
                                 if (rawSid && rawSid.includes('angelthump.sid=')) {
                                     rawSid = rawSid.split('angelthump.sid=')[1].trim();
                                 }
-                                if (rawSid) rawSid = rawSid.split(';')[0].trim(); // LIMPIEZA EXTRA DE SEMICOLONS
+                                if (rawSid) rawSid = rawSid.split(';')[0].trim(); 
                                 finalSid = rawSid;
                             } else {
                                 finalPass = cleanText.replace(/Contrase.*?:/i, '').trim().replace(/^['"]|['"]$/g, '');
@@ -1438,83 +1438,106 @@ export default function App() {
     <div className={`bg-[#0f0f0f] text-gray-200 font-sans selection:bg-[#e5a00d] selection:text-black overflow-x-hidden ${activeTab === 'directos' ? 'min-h-screen pb-6' : 'min-h-screen pb-20'}`}>
       
       <style>{`
-        /* Bloqueamos el margen fantasma fijando el máximo de pantalla */
+        /* FUERZAS ESTRICTAS PARA ELIMINAR EL MARGEN BLANCO DE PC Y ASEGURAR ANCHO TOTAL */
+        :root { color-scheme: dark; } /* Esto le dice al SO que use la barra nativa oscura */
         html, body { 
             background-color: #0f0f0f; 
             color: #fff; 
-            max-width: 100vw; 
+            width: 100%; /* Sustituye a 100vw para evitar que sume el scrollbar */
             overflow-x: hidden;
             margin: 0;
             padding: 0;
         }
         
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+        ::-webkit-scrollbar { width: 12px; height: 12px; }
+        /* Forzamos el color del fondo de la barra de desplazamiento */
+        ::-webkit-scrollbar-track { background: #0f0f0f; border-left: 1px solid rgba(255,255,255,0.02); }
+        /* La "pestaña" que se mueve ahora parece flotar */
+        ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 8px; border: 3px solid #0f0f0f; }
         ::-webkit-scrollbar-thumb:hover { background: #e5a00d; }
-        * { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.15) transparent; }
+        * { scrollbar-width: thin; scrollbar-color: #2a2a2a #0f0f0f; }
       `}</style>
 
-      <nav className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${isScrolled ? 'bg-[#141414]/95 backdrop-blur-md shadow-2xl' : 'bg-gradient-to-b from-black/90 to-transparent'}`}>
-        <div className="px-4 md:px-12 py-3 md:py-4 flex flex-wrap items-center justify-between gap-y-3">
+      {/* --- NAVBAR REDISEÑADA --- */}
+      <nav className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${isScrolled ? 'bg-[#141414]/95 backdrop-blur-md shadow-2xl' : 'bg-gradient-to-b from-black/90 via-black/50 to-transparent'}`}>
+        <div className="px-4 md:px-12 py-3 flex flex-col gap-3">
           
-          {/* 1. LOGO (Izquierda en móvil y PC) */}
-          <div className="w-1/2 lg:w-auto flex items-center gap-1 text-[#e5a00d] font-black text-2xl md:text-3xl tracking-tighter cursor-pointer shrink-0 order-1" onClick={() => {setActiveTab('inicio'); setSearchQuery(""); setSelectedCategory(null);}}>
-            <ChevronRight size={28} className="-mr-2 md:-mr-3" />
-            <span>ElPepe<span className="text-white font-light">Streams</span></span>
-          </div>
-
-          {/* 2. BOTÓN DE IDIOMA (Derecha en móvil y PC) */}
-          <div className="w-1/2 lg:w-auto flex justify-end shrink-0 order-2 lg:order-4">
-             <div className="relative group shrink-0" ref={langMenuRef}>
-                 <div 
-                    className={`bg-white/5 hover:bg-white/10 p-2.5 rounded-full border border-white/10 cursor-pointer transition-all flex items-center justify-center ${isLangMenuOpen ? 'bg-white/10 ring-1 ring-white/20' : ''}`}
-                    onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
-                    title="Cambiar idioma"
-                 >
-                    <Globe size={18} className="text-gray-300 group-hover:text-white transition-colors" />
-                 </div>
-                 
-                 {isLangMenuOpen && (
-                    <div className="absolute right-0 mt-3 w-40 bg-[#141414] border border-white/10 rounded-xl shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                       {[
-                          { code: 'es', label: 'Castellano' },
-                          { code: 'ca', label: 'Català / Valencià' },
-                          { code: 'gl', label: 'Galego' },
-                          { code: 'eu', label: 'Euskara' }
-                       ].map(lang => (
-                          <button
-                             key={lang.code}
-                             onClick={() => { setAppLang(lang.code); setIsLangMenuOpen(false); }}
-                             className={`w-full text-left px-4 py-2.5 text-xs font-semibold transition-all flex items-center gap-2 ${appLang === lang.code ? 'text-[#e5a00d] bg-[#e5a00d]/10' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-                          >
-                             {appLang === lang.code && <span className="w-1.5 h-1.5 rounded-full bg-[#e5a00d] shrink-0"></span>}
-                             <span className={appLang === lang.code ? '' : 'ml-3'}>{lang.label}</span>
-                          </button>
-                       ))}
-                    </div>
-                 )}
-              </div>
-          </div>
-
-          {/* 3. BARRA DE BÚSQUEDA (Ocupa el 100% en la fila central en móvil. En PC se pone al lado del idioma) */}
-          {(activeTab === 'inicio' || activeTab === 'pelis') && (
-              <div className="w-full lg:w-auto lg:min-w-[250px] shrink-0 order-4 lg:order-3 lg:ml-4 lg:mr-4">
-                <div className="relative group w-full">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#e5a00d] transition-colors" size={16} />
-                  <input type="text" placeholder={t.buscar} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="bg-neutral-900/80 border border-white/10 rounded-full py-2 pl-10 md:pl-12 pr-4 md:pr-6 w-full focus:outline-none focus:border-[#e5a00d] focus:bg-black transition-all text-sm backdrop-blur-sm" />
+          {/* Fila 1 (Móvil) / Fila única (PC) */}
+          <div className="flex items-center justify-between w-full">
+             <div className="flex items-center gap-6">
+                {/* Logo */}
+                <div className="flex items-center gap-1 text-[#e5a00d] font-black text-2xl md:text-3xl tracking-tighter cursor-pointer shrink-0" onClick={() => {setActiveTab('inicio'); setSearchQuery(""); setSelectedCategory(null);}}>
+                  <ChevronRight size={28} className="-mr-2 md:-mr-3" />
+                  <span>ElPepe<span className="text-white font-light">Streams</span></span>
                 </div>
-              </div>
-          )}
-
-          {/* 4. TABS / NAVEGACIÓN (Fila inferior en móvil con scroll. Al lado del logo en PC) */}
-          <div className="w-full lg:w-auto overflow-x-auto scrollbar-hide flex items-center gap-2 md:gap-6 text-[11px] sm:text-xs md:text-sm font-bold tracking-wide order-3 lg:order-2 lg:flex-1 lg:ml-6 pb-1 sm:pb-0">
-             <button onClick={() => {setActiveTab('inicio'); setSearchQuery(""); setSelectedCategory(null);}} className={`flex items-center gap-1.5 transition-colors whitespace-nowrap px-2 py-1 rounded-md ${activeTab === 'inicio' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}><Home size={16} className="hidden sm:block"/> {t.inicio}</button>
-             <button onClick={() => {setActiveTab('pelis'); setSearchQuery(""); setSelectedCategory(null);}} className={`flex items-center gap-1.5 transition-colors whitespace-nowrap px-2 py-1 rounded-md ${activeTab === 'pelis' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}><Film size={16} className="hidden sm:block"/> {t.pelis}</button>
-             <button onClick={() => {setActiveTab('series'); setSearchQuery(""); setSelectedCategory(null);}} className={`flex items-center gap-1.5 transition-colors whitespace-nowrap px-2 py-1 rounded-md ${activeTab === 'series' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}><Tv size={16} className="hidden sm:block"/> {t.series}</button>
-             <button onClick={() => {setActiveTab('directos'); setSearchQuery(""); setSelectedCategory(null);}} className={`flex items-center gap-1.5 transition-colors whitespace-nowrap px-2 py-1 rounded-md ${activeTab === 'directos' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}><Radio size={16} className="hidden sm:block"/> {t.directos}</button>
+                
+                {/* Tabs de Navegación (Solo en PC) */}
+                <div className="hidden lg:flex items-center gap-4 text-sm font-bold tracking-wide">
+                   <button onClick={() => {setActiveTab('inicio'); setSearchQuery(""); setSelectedCategory(null);}} className={`flex items-center gap-1.5 transition-colors whitespace-nowrap px-2 py-1 rounded-md ${activeTab === 'inicio' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}><Home size={16} /> {t.inicio}</button>
+                   <button onClick={() => {setActiveTab('pelis'); setSearchQuery(""); setSelectedCategory(null);}} className={`flex items-center gap-1.5 transition-colors whitespace-nowrap px-2 py-1 rounded-md ${activeTab === 'pelis' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}><Film size={16} /> {t.pelis}</button>
+                   <button onClick={() => {setActiveTab('series'); setSearchQuery(""); setSelectedCategory(null);}} className={`flex items-center gap-1.5 transition-colors whitespace-nowrap px-2 py-1 rounded-md ${activeTab === 'series' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}><Tv size={16} /> {t.series}</button>
+                   <button onClick={() => {setActiveTab('directos'); setSearchQuery(""); setSelectedCategory(null);}} className={`flex items-center gap-1.5 transition-colors whitespace-nowrap px-2 py-1 rounded-md ${activeTab === 'directos' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}><Radio size={16} /> {t.directos}</button>
+                </div>
+             </div>
+             
+             <div className="flex items-center gap-3">
+                {/* Buscador (Solo en PC) */}
+                {(activeTab === 'inicio' || activeTab === 'pelis') && (
+                    <div className="hidden lg:block relative group w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#e5a00d] transition-colors" size={16} />
+                      <input type="text" placeholder={t.buscar} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="bg-neutral-900/60 border border-white/10 rounded-full py-2 pl-9 pr-4 w-full focus:outline-none focus:border-[#e5a00d] focus:bg-black transition-all text-sm backdrop-blur-sm" />
+                    </div>
+                )}
+                
+                {/* Menú de Idioma (Móvil y PC) */}
+                <div className="relative group shrink-0" ref={langMenuRef}>
+                   <div 
+                      className={`bg-white/5 hover:bg-white/10 p-2 rounded-full border border-white/10 cursor-pointer transition-all flex items-center justify-center ${isLangMenuOpen ? 'bg-white/10 ring-1 ring-white/20' : ''}`}
+                      onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+                      title="Cambiar idioma"
+                   >
+                      <Globe size={18} className="text-gray-300 group-hover:text-white transition-colors" />
+                   </div>
+                   
+                   {isLangMenuOpen && (
+                      <div className="absolute right-0 mt-3 w-40 bg-[#141414] border border-white/10 rounded-xl shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                         {[
+                            { code: 'es', label: 'Castellano' },
+                            { code: 'ca', label: 'Català / Valencià' },
+                            { code: 'gl', label: 'Galego' },
+                            { code: 'eu', label: 'Euskara' }
+                         ].map(lang => (
+                            <button
+                               key={lang.code}
+                               onClick={() => { setAppLang(lang.code); setIsLangMenuOpen(false); }}
+                               className={`w-full text-left px-4 py-2.5 text-xs font-semibold transition-all flex items-center gap-2 ${appLang === lang.code ? 'text-[#e5a00d] bg-[#e5a00d]/10' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                            >
+                               {appLang === lang.code && <span className="w-1.5 h-1.5 rounded-full bg-[#e5a00d] shrink-0"></span>}
+                               <span className={appLang === lang.code ? '' : 'ml-3'}>{lang.label}</span>
+                            </button>
+                         ))}
+                      </div>
+                   )}
+                </div>
+             </div>
           </div>
 
+          {/* Fila 2 (Solo Móvil): Tabs desplazables + Buscador Compacto */}
+          <div className="flex lg:hidden items-center justify-between gap-3 w-full">
+             <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide text-[11px] font-bold w-[60%] shrink-0">
+                 <button onClick={() => {setActiveTab('inicio'); setSearchQuery(""); setSelectedCategory(null);}} className={`transition-colors whitespace-nowrap px-2 py-1.5 rounded-md ${activeTab === 'inicio' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white'}`}>{t.inicio}</button>
+                 <button onClick={() => {setActiveTab('pelis'); setSearchQuery(""); setSelectedCategory(null);}} className={`transition-colors whitespace-nowrap px-2 py-1.5 rounded-md ${activeTab === 'pelis' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white'}`}>{t.pelis}</button>
+                 <button onClick={() => {setActiveTab('series'); setSearchQuery(""); setSelectedCategory(null);}} className={`transition-colors whitespace-nowrap px-2 py-1.5 rounded-md ${activeTab === 'series' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white'}`}>{t.series}</button>
+                 <button onClick={() => {setActiveTab('directos'); setSearchQuery(""); setSelectedCategory(null);}} className={`transition-colors whitespace-nowrap px-2 py-1.5 rounded-md ${activeTab === 'directos' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white'}`}>{t.directos}</button>
+             </div>
+             
+             {(activeTab === 'inicio' || activeTab === 'pelis') && (
+                 <div className="w-[40%] min-w-[120px] relative group flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#e5a00d] transition-colors" size={14} />
+                    <input type="text" placeholder={t.buscar} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="bg-neutral-900/60 border border-white/10 rounded-full py-1.5 pl-8 pr-3 w-full focus:outline-none focus:border-[#e5a00d] focus:bg-black transition-all text-xs backdrop-blur-sm" />
+                 </div>
+             )}
+          </div>
         </div>
       </nav>
 
@@ -1532,7 +1555,7 @@ export default function App() {
       ) : (
         <>
           {activeTab === 'directos' && (
-            <div className="pt-24 md:pt-[5.5rem] px-4 md:px-12 flex flex-col lg:flex-row gap-4 md:gap-6 h-[calc(100vh-1rem)] pb-4 md:pb-6 lg:pb-8 animate-in fade-in duration-500 w-full">
+            <div className="pt-28 md:pt-[5.5rem] px-4 md:px-12 flex flex-col lg:flex-row gap-4 md:gap-6 h-[calc(100vh-1rem)] pb-4 md:pb-6 lg:pb-8 animate-in fade-in duration-500 w-full">
                 
                 <div className="flex-1 bg-black rounded-xl overflow-hidden border border-white/10 relative shadow-2xl min-h-[40vh] lg:min-h-0 lg:h-full flex items-center justify-center group/player">
                     <div className="absolute inset-0 w-full h-full">
@@ -1658,15 +1681,16 @@ export default function App() {
           {(activeTab === 'inicio' || activeTab === 'pelis') && (
             <div className="animate-in fade-in duration-300">
               {heroItem && !searchQuery && !selectedCategory && (
-                <div className="relative h-[60vh] sm:h-[65vh] md:h-[85vh] w-full mb-6 md:mb-12 overflow-hidden mt-32 lg:mt-0">
-                   {/* Imagen horizontal tanto en móvil como en PC */}
-                   <img src={heroItem.backdrop} className="w-full h-full object-cover object-top sm:object-center opacity-80 md:opacity-100" alt="Hero Banner" />
+                /* ¡AHORA EMPIEZA EN TOP-0 Y LA IMAGEN NO SE CORTA! */
+                <div className="relative h-[65vh] md:h-[85vh] w-full mb-6 md:mb-12 overflow-hidden">
+                   <img src={heroItem.backdrop} className="w-full h-full object-cover object-top sm:object-center opacity-90 md:opacity-100" alt="Hero Banner" />
                    
-                   {/* Gradientes oscurecedores */}
+                   {/* Capas de oscurecimiento */}
                    <div className="absolute inset-0 bg-gradient-to-r from-[#0f0f0f] via-[#0f0f0f]/80 md:via-[#0f0f0f]/60 to-transparent"></div>
-                   <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f0f] via-[#0f0f0f]/40 md:via-transparent to-transparent"></div>
+                   <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f0f] via-[#0f0f0f]/20 md:via-transparent to-transparent"></div>
+                   <div className="absolute inset-0 bg-gradient-to-b from-[#0f0f0f]/80 via-transparent to-transparent h-40"></div> {/* Sombrea arriba para que la barra de nav destaque siempre */}
                    
-                   <div className="absolute bottom-6 md:bottom-20 left-4 md:left-12 max-w-[95%] sm:max-w-[80%] md:max-w-3xl z-10 flex flex-col justify-end">
+                   <div className="absolute bottom-6 md:bottom-20 left-4 md:left-12 max-w-[95%] sm:max-w-[80%] md:max-w-3xl z-10 flex flex-col justify-end pt-24">
                       <div className="flex items-center gap-2 text-[#e5a00d] font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2 md:mb-4">
                         <Film size={14} /> {t.recomendado_para_ti}
                       </div>
@@ -1679,7 +1703,8 @@ export default function App() {
                 </div>
               )}
 
-              <div className={searchQuery || selectedCategory ? 'pt-44 lg:pt-36 px-4 md:px-12' : '-mt-6 md:-mt-24 relative z-20'}>
+              {/* Contenedor del contenido que baja si hay una búsqueda o filtro abierto */}
+              <div className={searchQuery || selectedCategory ? 'pt-36 md:pt-32 px-4 md:px-12' : 'relative z-20 -mt-8 md:-mt-16'}>
                 {searchQuery ? (
                    <div>
                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
