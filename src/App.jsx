@@ -663,11 +663,18 @@ export default function App() {
   const langMenuRef = useRef(null);
   const t = UI_TRANSLATIONS[appLang] || UI_TRANSLATIONS['es'];
 
-  // Clicar fuera para cerrar el menú de idiomas
+  // ESTADO BUSCADOR MÓVIL
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const mobileSearchRef = useRef(null);
+
+  // Clicar fuera para cerrar menús
   useEffect(() => {
     const handleClickOutside = (event) => {
         if (langMenuRef.current && !langMenuRef.current.contains(event.target)) {
             setIsLangMenuOpen(false);
+        }
+        if (mobileSearchRef.current && !mobileSearchRef.current.contains(event.target)) {
+            setIsMobileSearchOpen(false);
         }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -1438,27 +1445,33 @@ export default function App() {
     <div className={`bg-[#0f0f0f] text-gray-200 font-sans selection:bg-[#e5a00d] selection:text-black overflow-x-hidden ${activeTab === 'directos' ? 'min-h-screen pb-6' : 'min-h-screen pb-20'}`}>
       
       <style>{`
-        /* FUERZAS ESTRICTAS PARA ELIMINAR EL MARGEN BLANCO DE PC Y ASEGURAR ANCHO TOTAL */
-        :root { color-scheme: dark; } /* Esto le dice al SO que use la barra nativa oscura */
+        /* SCROLLBAR FLOTANTE ESTILO NATIVO (SIN RAIL/TRACK) */
+        :root { color-scheme: dark; } 
         html, body { 
             background-color: #0f0f0f; 
             color: #fff; 
-            width: 100%; /* Sustituye a 100vw para evitar que sume el scrollbar */
+            width: 100%; /* Usamos 100% en lugar de 100vw para evitar saltos horizontales */
             overflow-x: hidden;
             margin: 0;
             padding: 0;
+            overflow-y: overlay; /* Activa el modo superposición si el navegador lo soporta */
         }
         
-        ::-webkit-scrollbar { width: 12px; height: 12px; }
-        /* Forzamos el color del fondo de la barra de desplazamiento */
-        ::-webkit-scrollbar-track { background: #0f0f0f; border-left: 1px solid rgba(255,255,255,0.02); }
-        /* La "pestaña" que se mueve ahora parece flotar */
-        ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 8px; border: 3px solid #0f0f0f; }
+        /* Barrita más fina y sutil */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        
+        /* ¡MAGIA! El fondo ahora es 100% transparente para que no robe espacio ni se vea feo */
+        ::-webkit-scrollbar-track { background: transparent; border: none; }
+        
+        /* El "pulgar" (lo que se mueve) con algo de transparencia y estilo redondeado */
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #e5a00d; }
-        * { scrollbar-width: thin; scrollbar-color: #2a2a2a #0f0f0f; }
+        
+        /* Estándar moderno equivalente */
+        * { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.3) transparent; }
       `}</style>
 
-      {/* --- NAVBAR REDISEÑADA --- */}
+      {/* --- NAVBAR --- */}
       <nav className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${isScrolled ? 'bg-[#141414]/95 backdrop-blur-md shadow-2xl' : 'bg-gradient-to-b from-black/90 via-black/50 to-transparent'}`}>
         <div className="px-4 md:px-12 py-3 flex flex-col gap-3">
           
@@ -1522,19 +1535,41 @@ export default function App() {
              </div>
           </div>
 
-          {/* Fila 2 (Solo Móvil): Tabs desplazables + Buscador Compacto */}
-          <div className="flex lg:hidden items-center justify-between gap-3 w-full">
-             <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide text-[11px] font-bold w-[60%] shrink-0">
+          {/* Fila 2 (Solo Móvil): Tabs desplazables + Botón Lupa */}
+          <div className="flex lg:hidden items-center justify-between gap-3 w-full relative">
+             <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide text-[11px] font-bold flex-1">
                  <button onClick={() => {setActiveTab('inicio'); setSearchQuery(""); setSelectedCategory(null);}} className={`transition-colors whitespace-nowrap px-2 py-1.5 rounded-md ${activeTab === 'inicio' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white'}`}>{t.inicio}</button>
                  <button onClick={() => {setActiveTab('pelis'); setSearchQuery(""); setSelectedCategory(null);}} className={`transition-colors whitespace-nowrap px-2 py-1.5 rounded-md ${activeTab === 'pelis' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white'}`}>{t.pelis}</button>
                  <button onClick={() => {setActiveTab('series'); setSearchQuery(""); setSelectedCategory(null);}} className={`transition-colors whitespace-nowrap px-2 py-1.5 rounded-md ${activeTab === 'series' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white'}`}>{t.series}</button>
                  <button onClick={() => {setActiveTab('directos'); setSearchQuery(""); setSelectedCategory(null);}} className={`transition-colors whitespace-nowrap px-2 py-1.5 rounded-md ${activeTab === 'directos' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white'}`}>{t.directos}</button>
              </div>
              
+             {/* El icono de buscar que despliega el input en móvil */}
              {(activeTab === 'inicio' || activeTab === 'pelis') && (
-                 <div className="w-[40%] min-w-[120px] relative group flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#e5a00d] transition-colors" size={14} />
-                    <input type="text" placeholder={t.buscar} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="bg-neutral-900/60 border border-white/10 rounded-full py-1.5 pl-8 pr-3 w-full focus:outline-none focus:border-[#e5a00d] focus:bg-black transition-all text-xs backdrop-blur-sm" />
+                 <div className="relative shrink-0" ref={mobileSearchRef}>
+                    <button 
+                        onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)} 
+                        className={`p-2 rounded-full transition-all flex items-center justify-center ${isMobileSearchOpen ? 'bg-[#e5a00d] text-black' : 'bg-white/5 text-gray-400 hover:text-white'}`}
+                    >
+                        <Search size={16} />
+                    </button>
+
+                    {/* El input que se muestra flotante debajo al pulsar la lupa */}
+                    {isMobileSearchOpen && (
+                        <div className="absolute right-0 top-full mt-3 w-[85vw] sm:w-80 z-50 animate-in fade-in slide-in-from-top-2 shadow-2xl">
+                            <div className="relative w-full">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                <input 
+                                    autoFocus
+                                    type="text" 
+                                    placeholder={t.buscar} 
+                                    value={searchQuery} 
+                                    onChange={(e) => setSearchQuery(e.target.value)} 
+                                    className="bg-[#141414] border border-white/20 rounded-full py-3 pl-11 pr-4 w-full focus:outline-none focus:border-[#e5a00d] text-sm text-white shadow-2xl" 
+                                />
+                            </div>
+                        </div>
+                    )}
                  </div>
              )}
           </div>
@@ -1681,14 +1716,12 @@ export default function App() {
           {(activeTab === 'inicio' || activeTab === 'pelis') && (
             <div className="animate-in fade-in duration-300">
               {heroItem && !searchQuery && !selectedCategory && (
-                /* ¡AHORA EMPIEZA EN TOP-0 Y LA IMAGEN NO SE CORTA! */
                 <div className="relative h-[65vh] md:h-[85vh] w-full mb-6 md:mb-12 overflow-hidden">
                    <img src={heroItem.backdrop} className="w-full h-full object-cover object-top sm:object-center opacity-90 md:opacity-100" alt="Hero Banner" />
                    
-                   {/* Capas de oscurecimiento */}
                    <div className="absolute inset-0 bg-gradient-to-r from-[#0f0f0f] via-[#0f0f0f]/80 md:via-[#0f0f0f]/60 to-transparent"></div>
                    <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f0f] via-[#0f0f0f]/20 md:via-transparent to-transparent"></div>
-                   <div className="absolute inset-0 bg-gradient-to-b from-[#0f0f0f]/80 via-transparent to-transparent h-40"></div> {/* Sombrea arriba para que la barra de nav destaque siempre */}
+                   <div className="absolute inset-0 bg-gradient-to-b from-[#0f0f0f]/80 via-transparent to-transparent h-40"></div> 
                    
                    <div className="absolute bottom-6 md:bottom-20 left-4 md:left-12 max-w-[95%] sm:max-w-[80%] md:max-w-3xl z-10 flex flex-col justify-end pt-24">
                       <div className="flex items-center gap-2 text-[#e5a00d] font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2 md:mb-4">
@@ -1703,7 +1736,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* Contenedor del contenido que baja si hay una búsqueda o filtro abierto */}
               <div className={searchQuery || selectedCategory ? 'pt-36 md:pt-32 px-4 md:px-12' : 'relative z-20 -mt-8 md:-mt-16'}>
                 {searchQuery ? (
                    <div>
