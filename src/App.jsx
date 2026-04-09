@@ -733,6 +733,7 @@ export default function App() {
     }
     link.href = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍿</text></svg>";
     
+    // El scroll funciona de forma nativa ahora que el body no tiene height:100%
     const handleScroll = () => setIsScrolled(window.scrollY > 30);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
@@ -1453,44 +1454,39 @@ export default function App() {
       <style>{`
         :root { color-scheme: dark; } 
         
-        /* MAGIA PARA SCROLLBAR EN PC (Bulletproof) */
+        /* Eliminar el height: 100% de html/body para que el scroll nativo de window vuelva a funcionar */
         html, body { 
             background-color: #0f0f0f; 
             color: #fff; 
-            width: 100%; 
-            height: 100%;
             overflow-x: hidden; 
             margin: 0;
             padding: 0;
         }
-        
-        /* Ocultamos por completo el fondo/carril de la barra haciéndola del MISMO color exacto que la app */
-        ::-webkit-scrollbar { 
-            width: 10px; /* Tamaño del carril (no visible por el color) */
-            background: #0f0f0f; 
+
+        /* Usando EXACTAMENTE el código recomendado por el usuario para el scroll overlay */
+        html {
+            /* Estándar (Firefox y Chrome moderno) */
+            scrollbar-color: rgba(255, 255, 255, 0.3) transparent; /* Ajustado al tema oscuro */
+            scrollbar-width: thin;
+
+            /* Forzar overlay en Chrome/Edge (aunque sea antiguo, sigue siendo efectivo) */
+            overflow-y: overlay; 
         }
         
-        ::-webkit-scrollbar-track { 
-            background: #0f0f0f; 
-            border: none; 
+        /* Control fino para Chrome/Safari/Edge */
+        ::-webkit-scrollbar {
+            width: 8px;
         }
-        
-        /* Diseñamos el pulgar ("lo que arrastras") como si flotase */
-        ::-webkit-scrollbar-thumb { 
-            background-color: #333; /* Color sutil del pulgar en reposo */
-            border-radius: 10px; 
-            /* El borde del mismo color que el fondo crea un 'margen' mágico y lo hace parecer más fino */
-            border: 2px solid #0f0f0f; 
-            background-clip: content-box; 
+        ::-webkit-scrollbar-track {
+            background: transparent; /* Permite ver las imágenes debajo */
         }
-        
-        /* Cuando pasas el ratón por encima brilla con el color de la marca */
-        ::-webkit-scrollbar-thumb:hover { 
-            background-color: #e5a00d; 
-            border: 1px solid #0f0f0f; /* Un pelín más ancho al interactuar */
+        ::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.3); /* Un blanco sutil para el fondo oscuro */
+            border-radius: 10px;
         }
-        
-        * { scrollbar-width: thin; scrollbar-color: #333 #0f0f0f; }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(229, 160, 13, 0.8); /* Brilla con color acento al pasar el ratón */
+        }
       `}</style>
 
       {/* --- NAVBAR --- */}
