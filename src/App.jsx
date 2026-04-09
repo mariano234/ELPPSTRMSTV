@@ -105,14 +105,14 @@ const UI_TRANSLATIONS = {
     proximamente: 'Próximamente...', prep_series: 'Estamos preparando todo el catálogo de series para integrarlo en la plataforma. ¡Vuelve muy pronto!',
     acceso_premium: 'Acceso Premium', pass_directo: 'Autenticación Requerida',
     desc_directo: 'El directo está protegido. Verifica que tienes el rol requerido en nuestro servidor de Discord para acceder.',
-    verificando: 'Verificando...', refrescar_pass: 'Refrescar Sesión', verificar_rol: 'Verificar mi Rol en Discord',
+    verificando: 'Verificando...', refrescar_pass: 'Refrescar Sesión', verificar_rol: 'Verificar Rol de Discord',
     vacio: 'Vacío', sin_pass: 'Sin Contraseña', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normal (Público)',
     acceso_concedido: 'Acceso VIP Concedido',
     credenciales_inyectadas: 'Tus credenciales se han inyectado automáticamente en el reproductor. ¡Disfruta del directo!',
     selecciona_servidor: 'Selecciona tu Servidor',
     servidor_no_disp: 'Servidor Premium no disponible con tu rol actual.',
     panel_servidor: 'Panel de Control',
-    enviar_tv: 'Enviar a TV (Chromecast)'
+    enviar_tv: 'Enviar a TV (Chromecast)', error_cast: 'Chromecast no disponible. Verifica que estás en Google Chrome y en la misma red Wi-Fi.'
   },
   'ca': {
     inicio: 'INICI', pelis: 'PEL·LIS', series: 'SÈRIES', directos: 'DIRECTES',
@@ -133,14 +133,14 @@ const UI_TRANSLATIONS = {
     proximamente: 'Aviat...', prep_series: 'Estem preparant tot el catàleg de sèries per integrar-lo a la plataforma. Torna molt aviat!',
     acceso_premium: 'Accés Premium', pass_directo: 'Autenticació Requerida',
     desc_directo: 'El directe està protegit. Verifica que tens el rol requerit al nostre servidor de Discord per accedir-hi.',
-    verificando: 'Verificant...', refrescar_pass: 'Refrescar Sessió', verificar_rol: 'Verificar el meu Rol a Discord',
+    verificando: 'Verificant...', refrescar_pass: 'Refrescar Sessió', verificar_rol: 'Verificar el meu Rol',
     vacio: 'Buit', sin_pass: 'Sense Contrasenya', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normal (Públic)',
     acceso_concedido: 'Accés VIP Concedit',
     credenciales_inyectadas: 'Les teves credencials s\'han injectat automàticament al reproductor. Gaudeix del directe!',
     selecciona_servidor: 'Selecciona el teu Servidor',
     servidor_no_disp: 'Servidor Premium no disponible amb el teu rol actual.',
     panel_servidor: 'Tauler de Control',
-    enviar_tv: 'Enviar a TV (Chromecast)'
+    enviar_tv: 'Enviar a TV (Chromecast)', error_cast: 'Chromecast no disponible. Verifica que estàs a Google Chrome i a la mateixa xarxa Wi-Fi.'
   },
   'gl': {
     inicio: 'INICIO', pelis: 'PELIS', series: 'SERIES', directos: 'DIRECTOS',
@@ -161,14 +161,14 @@ const UI_TRANSLATIONS = {
     proximamente: 'Proximamente...', prep_series: 'Estamos a preparar todo o catálogo de series para integralo na plataforma. Volve moi pronto!',
     acceso_premium: 'Acceso Premium', pass_directo: 'Autenticación Requirida',
     desc_directo: 'O directo está protexido. Verifica que tes o rol requirido no noso servidor de Discord para acceder.',
-    verificando: 'Verificando...', refrescar_pass: 'Refrescar Sesión', verificar_rol: 'Verificar o meu Rol en Discord',
+    verificando: 'Verificando...', refrescar_pass: 'Refrescar Sesión', verificar_rol: 'Verificar o meu Rol',
     vacio: 'Baleiro', sin_pass: 'Sen Contrasinal', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normal (Público)',
     acceso_concedido: 'Acceso VIP Concedido',
     credenciales_inyectadas: 'As túas credenciais inxectáronse automaticamente no reprodutor. Goza do directo!',
     selecciona_servidor: 'Selecciona o teu Servidor',
     servidor_no_disp: 'Servidor Premium non dispoñible co teu rol actual.',
     panel_servidor: 'Panel de Control',
-    enviar_tv: 'Enviar a TV (Chromecast)'
+    enviar_tv: 'Enviar a TV (Chromecast)', error_cast: 'Chromecast non dispoñible. Verifica que estás en Google Chrome e na mesma rede Wi-Fi.'
   },
   'eu': {
     inicio: 'HASIERA', pelis: 'FILMAK', series: 'TELESAILAK', directos: 'ZUZENEKOAK',
@@ -189,14 +189,14 @@ const UI_TRANSLATIONS = {
     proximamente: 'Laster...', prep_series: 'Telesailen katalogo osoa prestatzen ari gara plataforman integratzeko. Itzuli laster!',
     acceso_premium: 'Premium Sarbidea', pass_directo: 'Autentifikazioa Beharrezkoa',
     desc_directo: 'Zuzenekoa babestuta dago. Egiaztatu Discord zerbitzarian beharrezko rola duzula sartzeko.',
-    verificando: 'Egiaztatzen...', refrescar_pass: 'Saioa Freskatu', verificar_rol: 'Nire Rola Discord-en Egiaztatu',
+    verificando: 'Egiaztatzen...', refrescar_pass: 'Saioa Freskatu', verificar_rol: 'Egiaztatu Rola',
     vacio: 'Hutsik', sin_pass: 'Pasahitzik Ez', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normala (Publikoa)',
     acceso_concedido: 'VIP Sarbidea Baimenduta',
     credenciales_inyectadas: 'Zure kredentzialak automatikoki txertatu dira erreproduzitzailean. Gozatu zuzenekoaz!',
     selecciona_servidor: 'Hautatu zure Zerbitzaria',
     servidor_no_disp: 'Premium Zerbitzaria ez dago erabilgarri zure uneko rolarekin.',
     panel_servidor: 'Kontrol Panela',
-    enviar_tv: 'Bidali telebistara'
+    enviar_tv: 'Bidali telebistara', error_cast: 'Chromecast ez dago eskuragarri. Egiaztatu Chrome-n zaudela eta Wi-Fi sare berean.'
   }
 };
 
@@ -224,13 +224,28 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
     const [error, setError] = useState(null);
     const [status, setStatus] = useState('Autenticando...');
 
+    // Lógica mejorada de Cast
     const handleCastRequest = () => {
-        if (playerInstanceRef.current && playerInstanceRef.current.cast) {
+        // Intento 1: Buscar y pulsar el botón interno de Plyr si existe
+        const plyrCastBtn = document.querySelector('.plyr__controls__item[data-plyr="cast"]');
+        if (plyrCastBtn) {
+            plyrCastBtn.click();
+            return;
+        }
+        
+        // Intento 2: Usar directamente la API de Google Cast
+        if (window.cast && window.cast.framework) {
             try {
-                playerInstanceRef.current.cast.request();
+                const castContext = window.cast.framework.CastContext.getInstance();
+                castContext.requestSession().then(
+                    () => console.log('Cast iniciado'),
+                    (err) => console.log('Cast cancelado o error:', err)
+                );
             } catch (e) {
-                console.log("Error solicitando Cast:", e);
+                alert(t.error_cast);
             }
+        } else {
+            alert(t.error_cast);
         }
     };
 
@@ -314,12 +329,19 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                     document.head.appendChild(script);
                 });
 
+                // Inicializar Cast Framework correctamente
                 await new Promise((resolve) => {
                     if (window.chrome && window.chrome.cast && window.chrome.cast.isAvailable) {
                         return resolve();
                     }
                     window.__onGCastApiAvailable = function(isAvailable) {
-                        if (isAvailable) resolve();
+                        if (isAvailable && window.cast && window.chrome && window.chrome.cast) {
+                            window.cast.framework.CastContext.getInstance().setOptions({
+                                receiverApplicationId: window.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+                                autoJoinPolicy: window.chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
+                            });
+                        }
+                        resolve();
                     };
                     if (!document.getElementById('cast-sdk')) {
                         const script = document.createElement('script');
@@ -761,8 +783,6 @@ export default function App() {
     }
     link.href = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍿</text></svg>";
     
-    // El scroll funciona de forma nativa. 
-    // Añadido { passive: true } para mejorar drásticamente el rendimiento en Firefox y móviles
     const handleScroll = () => setIsScrolled(window.scrollY > 30);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
@@ -1635,10 +1655,10 @@ export default function App() {
       ) : (
         <>
           {activeTab === 'directos' && (
-            <div className="flex-1 mt-[4.5rem] md:mt-[5rem] px-4 md:px-12 flex flex-col lg:flex-row gap-4 md:gap-6 pb-4 md:pb-6 w-full min-h-0 animate-in fade-in duration-500">
+            <div className="flex-1 mt-[4.5rem] md:mt-[5rem] px-4 md:px-12 flex flex-col lg:flex-row gap-3 md:gap-6 pb-2 md:pb-6 w-full min-h-0 animate-in fade-in duration-500">
                 
-                {/* CONTENEDOR VÍDEO: En móvil mantiene 16:9, en PC estira hasta abajo */}
-                <div className="w-full lg:flex-1 bg-black rounded-xl overflow-hidden border border-white/10 relative shadow-2xl flex items-center justify-center shrink-0 lg:shrink aspect-video lg:aspect-auto min-h-0">
+                {/* CONTENEDOR VÍDEO: El flex-1 asegura que se expanda para rellenar todo lo posible */}
+                <div className="w-full flex-1 bg-black rounded-xl overflow-hidden border border-white/10 relative shadow-2xl flex items-center justify-center shrink-0 lg:shrink aspect-video lg:aspect-auto min-h-0">
                     <div className="absolute inset-0 w-full h-full">
                         {isLogged ? (
                             <NativeStreamPlayer streamSid={streamSid} streamPassword={streamPassword} channel={STREAM_CHANNEL} usePatreon={usePatreon} t={t} />
@@ -1663,8 +1683,8 @@ export default function App() {
                     )}
                 </div>
                 
-                {/* CONTENEDOR PANEL: En móvil pilla todo el espacio que sobra del vídeo */}
-                <div className="flex-1 lg:w-[350px] xl:w-[400px] bg-[#1a1a1c] rounded-xl overflow-hidden border border-white/5 flex flex-col shadow-2xl shrink-0 lg:shrink-0 min-h-0">
+                {/* CONTENEDOR PANEL: Ajustado su ancho máximo y eliminado flex-1 en PC. Ultra comprimido en móvil. */}
+                <div className="w-full lg:w-[300px] xl:w-[340px] 2xl:w-[380px] bg-[#1a1a1c] rounded-xl overflow-hidden border border-white/5 flex flex-col shadow-2xl shrink-0 min-h-0">
                     <div className="bg-[#141414] p-3 border-b border-white/5 flex justify-center items-center shrink-0">
                        <span className="font-bold text-white text-sm flex items-center gap-2">
                            {isLogged ? <Server size={16} className="text-[#e5a00d]" /> : <Lock size={16} className="text-[#5865F2]" />}
@@ -1672,20 +1692,19 @@ export default function App() {
                        </span>
                     </div>
                     
-                    {/* SCROLL INTERNO SOLO AQUÍ si el texto es muy largo */}
-                    <div className="flex flex-col flex-1 p-4 md:p-6 justify-start items-center text-center overflow-y-auto">
+                    <div className="flex flex-col flex-1 p-3 sm:p-4 md:p-6 justify-start items-center text-center overflow-y-auto">
                         {isLogged ? (
                             <div className="flex flex-col items-center w-full min-h-full animate-in fade-in zoom-in duration-300">
-                                <div className="bg-green-500/10 p-4 rounded-full mb-4 border border-green-500/30 shadow-[0_0_30px_rgba(34,197,94,0.15)] shrink-0 mt-auto">
-                                    <CheckCircle size={40} className="text-green-500" />
+                                <div className="bg-green-500/10 p-3 sm:p-4 rounded-full mb-2 sm:mb-4 border border-green-500/30 shadow-[0_0_30px_rgba(34,197,94,0.15)] shrink-0 mt-auto">
+                                    <CheckCircle size={32} className="sm:w-10 sm:h-10 text-green-500" />
                                 </div>
-                                <h3 className="text-xl md:text-2xl font-black text-white mb-2 shrink-0">{t.acceso_concedido}</h3>
-                                <p className="text-gray-400 text-[11px] md:text-xs mb-8 leading-relaxed shrink-0">
+                                <h3 className="text-lg sm:text-xl md:text-2xl font-black text-white mb-1 sm:mb-2 shrink-0">{t.acceso_concedido}</h3>
+                                <p className="text-gray-400 text-[10px] sm:text-[11px] md:text-xs mb-3 sm:mb-6 leading-snug shrink-0">
                                     {t.credenciales_inyectadas}
                                 </p>
 
-                                <div className="w-full bg-black/40 border border-white/10 rounded-xl p-4 md:p-5 mb-6 shadow-inner shrink-0 mt-auto">
-                                    <span className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-widest font-bold flex items-center justify-center gap-2 mb-4">
+                                <div className="w-full bg-black/40 border border-white/10 rounded-xl p-3 sm:p-4 md:p-5 mb-3 sm:mb-6 shadow-inner shrink-0 mt-auto">
+                                    <span className="text-[9px] md:text-[11px] text-gray-400 uppercase tracking-widest font-bold flex items-center justify-center gap-2 mb-3 sm:mb-4">
                                         <Server size={14} className="text-[#e5a00d]" /> {t.selecciona_servidor}
                                     </span>
                                     
@@ -1693,29 +1712,29 @@ export default function App() {
                                         <button 
                                             onClick={() => setUsePatreon(true)}
                                             disabled={!streamSid} 
-                                            className={`flex-1 py-2.5 text-xs rounded-md transition-all duration-300 z-10 ${usePatreon ? 'bg-[#e5a00d] text-black font-black shadow-[0_2px_10px_rgba(229,160,13,0.3)]' : 'text-gray-400 hover:text-white font-semibold'} ${!streamSid ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                            className={`flex-1 py-2 sm:py-2.5 text-xs rounded-md transition-all duration-300 z-10 ${usePatreon ? 'bg-[#e5a00d] text-black font-black shadow-[0_2px_10px_rgba(229,160,13,0.3)]' : 'text-gray-400 hover:text-white font-semibold'} ${!streamSid ? 'opacity-30 cursor-not-allowed' : ''}`}
                                         >
                                             {t.serv_patreon}
                                         </button>
                                         <button 
                                             onClick={() => setUsePatreon(false)}
-                                            className={`flex-1 py-2.5 text-xs rounded-md transition-all duration-300 z-10 ${!usePatreon ? 'bg-neutral-700 text-white font-black shadow-md border border-white/10' : 'text-gray-400 hover:text-white font-semibold'}`}
+                                            className={`flex-1 py-2 sm:py-2.5 text-xs rounded-md transition-all duration-300 z-10 ${!usePatreon ? 'bg-neutral-700 text-white font-black shadow-md border border-white/10' : 'text-gray-400 hover:text-white font-semibold'}`}
                                         >
                                             {t.serv_normal}
                                         </button>
                                     </div>
                                     
                                     {!streamSid && (
-                                        <p className="text-[9px] text-red-400/80 mt-3 font-medium flex items-center justify-center gap-1">
+                                        <p className="text-[9px] text-red-400/80 mt-2 sm:mt-3 font-medium flex items-center justify-center gap-1">
                                             <AlertTriangle size={10} /> {t.servidor_no_disp}
                                         </p>
                                     )}
                                 </div>
 
-                                <div className="mt-auto w-full pt-2 pb-2">
+                                <div className="mt-auto w-full pt-1 pb-1">
                                     <a 
                                         href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify"
-                                        className="w-full font-bold py-3 px-6 rounded-lg transition-all border border-white/10 bg-[#202225] hover:bg-[#2f3136] text-gray-300 text-xs flex items-center justify-center gap-2 group"
+                                        className="w-full font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-lg transition-all border border-white/10 bg-[#202225] hover:bg-[#2f3136] text-gray-300 text-[11px] sm:text-xs flex items-center justify-center gap-2 group"
                                     >
                                         <RefreshCw size={14} className="group-hover:rotate-180 transition-transform duration-500" /> {t.refrescar_pass}
                                     </a>
@@ -1723,19 +1742,17 @@ export default function App() {
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center w-full h-full animate-in fade-in duration-300 my-auto">
-                                <div className="bg-[#5865F2]/10 p-4 rounded-full mb-4 border border-[#5865F2]/30 shrink-0">
-                                    <svg className="w-10 h-10 text-[#5865F2]" fill="currentColor" viewBox="0 0 127.14 96.36">
-                                        <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77.7,77.7,0,0,0,6.89,11.1,105.25,105.25,0,0,0,32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.56,65.3c-5.36,0-9.8-4.83-9.8-10.74s4.33-10.74,9.8-10.74,9.84,4.83,9.8,10.74C52.4,60.47,48,65.3,42.56,65.3Zm42,0c-5.36,0-9.8-4.83-9.8-10.74s4.33-10.74,9.8-10.74,9.84,4.83,9.8,10.74C94.4,60.47,90,65.3,84.56,65.3Z"/>
-                                    </svg>
+                                <div className="bg-[#5865F2]/10 p-3 sm:p-4 rounded-full mb-2 sm:mb-4 border border-[#5865F2]/30 shrink-0">
+                                    <Lock size={32} className="sm:w-10 sm:h-10 text-[#5865F2]" />
                                 </div>
-                                <h3 className="text-xl md:text-2xl font-black text-white mb-2 shrink-0">{t.pass_directo}</h3>
-                                <p className="text-gray-400 text-[11px] md:text-xs mb-8 leading-relaxed shrink-0 max-w-[250px]">
+                                <h3 className="text-lg sm:text-xl md:text-2xl font-black text-white mb-1 sm:mb-2 shrink-0">{t.pass_directo}</h3>
+                                <p className="text-gray-400 text-[10px] sm:text-[11px] md:text-xs mb-3 sm:mb-8 leading-snug shrink-0 max-w-[250px]">
                                     {t.desc_directo}
                                 </p>
                                 
                                 <a 
                                    href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify"
-                                   className={`font-bold py-3 px-6 rounded-lg transition-all w-full shadow-lg hover:scale-105 flex items-center justify-center gap-2 text-sm shrink-0 mt-auto ${
+                                   className={`font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-lg transition-all w-full shadow-lg hover:scale-105 flex items-center justify-center gap-2 text-[11px] sm:text-sm shrink-0 mt-auto ${
                                        isVerifying ? 'opacity-50 pointer-events-none bg-[#5865F2] text-white' : 
                                        'bg-[#5865F2] hover:bg-[#4752C4] text-white'
                                    }`}
