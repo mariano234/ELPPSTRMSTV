@@ -220,27 +220,56 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
     const containerRef = useRef(null);
     const playerInstanceRef = useRef(null);
     const hlsInstanceRef = useRef(null);
+    const m3u8UrlRef = useRef(null); // Ref para guardar la URL absoluta para el Chromecast
     
     const [error, setError] = useState(null);
     const [status, setStatus] = useState('Autenticando...');
 
-    // Lógica mejorada de Cast
+    // Lógica mejorada y manual de Cast (Bypass a la limitación de Plyr con Blobs)
     const handleCastRequest = () => {
-        // Intento 1: Buscar y pulsar el botón interno de Plyr si existe
-        const plyrCastBtn = document.querySelector('.plyr__controls__item[data-plyr="cast"]');
-        if (plyrCastBtn) {
-            plyrCastBtn.click();
-            return;
-        }
-        
-        // Intento 2: Usar directamente la API de Google Cast
+        if (!m3u8UrlRef.current) return;
+
         if (window.cast && window.cast.framework) {
             try {
                 const castContext = window.cast.framework.CastContext.getInstance();
-                castContext.requestSession().then(
-                    () => console.log('Cast iniciado'),
-                    (err) => console.log('Cast cancelado o error:', err)
-                );
+                
+                // Función manual para cargar la MediaInfo real al televisor
+                const loadMediaToCast = (session) => {
+                    const origin = window.location.origin.includes('localhost') ? 'https://elppstrmstv.pages.dev' : window.location.origin;
+                    
+                    // Nos aseguramos de mandar una URL absoluta y pública (vital para Chromecast)
+                    const absoluteUrl = m3u8UrlRef.current.startsWith('http') 
+                        ? m3u8UrlRef.current 
+                        : origin + m3u8UrlRef.current;
+                        
+                    const mediaInfo = new window.chrome.cast.media.MediaInfo(absoluteUrl, 'application/x-mpegurl');
+                    mediaInfo.metadata = new window.chrome.cast.media.GenericMediaMetadata();
+                    mediaInfo.metadata.title = 'Directo - ElPepeStreams';
+                    
+                    const request = new window.chrome.cast.media.LoadRequest(mediaInfo);
+                    
+                    session.loadMedia(request).then(
+                        () => console.log('Chromecast: Vídeo cargado correctamente.'),
+                        (err) => {
+                            console.error('Chromecast Error al cargar media:', err);
+                            alert("El televisor no pudo reproducir el formato de este servidor.");
+                        }
+                    );
+                };
+
+                const currentSession = castContext.getCurrentSession();
+                
+                if (currentSession) {
+                    loadMediaToCast(currentSession);
+                } else {
+                    castContext.requestSession().then(
+                        () => {
+                            const newSession = castContext.getCurrentSession();
+                            if (newSession) loadMediaToCast(newSession);
+                        },
+                        (err) => console.log('Chromecast: Solicitud cancelada por el usuario.', err)
+                    );
+                }
             } catch (e) {
                 alert(t.error_cast);
             }
@@ -293,11 +322,14 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                 if (!data.token) throw new Error("Angelthump no devolvió ningún token válido.");
 
                 const rawM3u8 = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
-                
                 let m3u8Url = `${API_BASE}/angelthump?url=${encodeURIComponent(rawM3u8)}`;
+                
                 if (usePatreon && identifier) {
                     m3u8Url += `&identifier=${encodeURIComponent(identifier)}&sid=${encodeURIComponent(cleanSid)}`;
                 }
+
+                // Guardamos la URL para poder inyectarla directamente al Chromecast después
+                m3u8UrlRef.current = m3u8Url;
 
                 if (!isMounted) return;
 
@@ -368,11 +400,11 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                 const videoEl = document.getElementById('native-video-player');
                 if (!videoEl) throw new Error("No se pudo inyectar el elemento de vídeo de forma segura.");
 
+                // Hemos quitado el 'cast' de los controles de Plyr. Fallaba porque intentaba reproducir el Blob URL local de HLS
                 const plyrOptions = {
-                    controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'settings', 'pip', 'airplay', 'cast', 'fullscreen'],
+                    controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'settings', 'pip', 'airplay', 'fullscreen'],
                     settings: ['quality'],
-                    autoplay: true,
-                    cast: { enabled: true } 
+                    autoplay: true
                 };
 
                 if (window.Hls.isSupported()) {
@@ -446,9 +478,9 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
             {/* Contenedor del reproductor */}
             <div ref={containerRef} className="w-full h-full absolute inset-0 z-10 flex flex-col justify-center"></div>
 
-            {/* Botón flotante para Chromecast/TV en esquina superior derecha */}
+            {/* Botón flotante para Chromecast/TV en esquina superior derecha - Siempre visible en móvil para evitar fallos de Hover */}
             {!status && !error && (
-                <div className="absolute top-4 right-4 z-30 opacity-0 group-hover/vid:opacity-100 transition-opacity duration-300">
+                <div className="absolute top-4 right-4 z-30 opacity-100 lg:opacity-0 lg:group-hover/vid:opacity-100 transition-opacity duration-300">
                     <button
                         onClick={handleCastRequest}
                         className="bg-black/60 hover:bg-[#e5a00d] text-white hover:text-black backdrop-blur-md border border-white/10 p-2.5 rounded-full transition-all shadow-lg flex items-center justify-center"
@@ -1655,7 +1687,7 @@ export default function App() {
       ) : (
         <>
           {activeTab === 'directos' && (
-            <div className="flex-1 mt-[4.5rem] md:mt-[5rem] px-4 md:px-12 flex flex-col lg:flex-row gap-3 md:gap-6 pb-2 md:pb-6 w-full min-h-0 animate-in fade-in duration-500">
+            <div className="flex-1 mt-[7.5rem] md:mt-[5rem] px-4 md:px-12 flex flex-col lg:flex-row gap-3 md:gap-6 pb-2 md:pb-6 w-full min-h-0 animate-in fade-in duration-500">
                 
                 {/* CONTENEDOR VÍDEO: El flex-1 asegura que se expanda para rellenar todo lo posible */}
                 <div className="w-full flex-1 bg-black rounded-xl overflow-hidden border border-white/10 relative shadow-2xl flex items-center justify-center shrink-0 lg:shrink aspect-video lg:aspect-auto min-h-0">
@@ -1683,7 +1715,7 @@ export default function App() {
                     )}
                 </div>
                 
-                {/* CONTENEDOR PANEL: Ajustado su ancho máximo y eliminado flex-1 en PC. Ultra comprimido en móvil. */}
+                {/* CONTENEDOR PANEL */}
                 <div className="w-full lg:w-[300px] xl:w-[340px] 2xl:w-[380px] bg-[#1a1a1c] rounded-xl overflow-hidden border border-white/5 flex flex-col shadow-2xl shrink-0 min-h-0">
                     <div className="bg-[#141414] p-3 border-b border-white/5 flex justify-center items-center shrink-0">
                        <span className="font-bold text-white text-sm flex items-center gap-2">
