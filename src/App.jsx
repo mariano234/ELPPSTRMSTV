@@ -196,6 +196,7 @@ const UI_TRANSLATIONS = {
   }
 };
 
+// EXTRACCIÓN DEL IDENTIFIER (Funciona a la perfección)
 const extractIdentifier = (sid) => {
   if (!sid) return null;
   let str = sid;
@@ -211,7 +212,6 @@ const extractIdentifier = (sid) => {
 };
 
 // --- COMPONENTE REPRODUCTOR NATIVO HLS ---
-// EXACTAMENTE EL DE APP.JSX QUE FUNCIONA CON /API/ANGELTHUMP
 const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t }) => {
     const containerRef = useRef(null);
     const playerInstanceRef = useRef(null);
@@ -237,16 +237,24 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                     patreon: usePatreon
                 };
                 
+                // ¡AQUÍ ESTÁ LA MAGIA! Tu angelthump.js necesita recibir la cabecera 'identifier'
+                const requestHeaders = { 
+                    'Content-Type': 'application/json' 
+                };
+                
                 if (usePatreon && cleanSid) {
                     payload.sid = cleanSid;
-                    if (identifier) payload.identifier = identifier;
+                    if (identifier) {
+                        payload.identifier = identifier;
+                        requestHeaders['identifier'] = identifier; // INYECTADO COMO HEADER
+                    }
                 } else if (!usePatreon && isValidPass) {
                     payload.password = cleanPass;
                 }
 
                 const res = await fetch(`${API_BASE}/angelthump`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: requestHeaders,
                     body: JSON.stringify(payload)
                 });
                 
@@ -807,7 +815,6 @@ export default function App() {
         setIsVerifying(true);
         setStreamPassword(t.verificando);
         
-        // Llamada a la API de tu backend para verificar
         fetch(`${API_BASE}/verificar?code=${code}`)
             .then(async res => {
                 if (!res.ok) {
@@ -837,6 +844,7 @@ export default function App() {
                                 if (rawSid.includes('angelthump.sid=')) {
                                     rawSid = rawSid.split('angelthump.sid=')[1].trim();
                                 }
+                                if (rawSid) rawSid = rawSid.split(';')[0].trim(); // LIMPIEZA EXTRA DE SEMICOLONS
                                 finalSid = rawSid;
                             }
                         }
@@ -849,6 +857,7 @@ export default function App() {
                                 if (rawSid && rawSid.includes('angelthump.sid=')) {
                                     rawSid = rawSid.split('angelthump.sid=')[1].trim();
                                 }
+                                if (rawSid) rawSid = rawSid.split(';')[0].trim(); // LIMPIEZA EXTRA DE SEMICOLONS
                                 finalSid = rawSid;
                             } else {
                                 finalPass = cleanText.replace(/Contrase.*?:/i, '').trim().replace(/^['"]|['"]$/g, '');
@@ -986,7 +995,6 @@ export default function App() {
           } catch(e) {}
       }
 
-      // Se mantiene el fetch directo a tu Google Sheets para ser 100% idénticos a App(old).jsx visualmente
       const response = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`);
       const csvText = await response.text();
       const parsedData = parseCSV(csvText);
@@ -1431,6 +1439,9 @@ export default function App() {
     <div className={`bg-[#0f0f0f] text-gray-200 font-sans selection:bg-[#e5a00d] selection:text-black overflow-x-hidden ${activeTab === 'directos' ? 'min-h-screen pb-6' : 'min-h-screen pb-20'}`}>
       
       <style>{`
+        /* FORZAR FONDO GLOBAL PARA QUE LA BARRA TRANSPARENTE NO QUEDE BLANCA */
+        html, body { background-color: #0f0f0f; color: #fff; }
+        
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
@@ -1511,7 +1522,6 @@ export default function App() {
           {activeTab === 'directos' && (
             <div className="pt-24 md:pt-[5.5rem] px-4 md:px-12 flex flex-col lg:flex-row gap-4 md:gap-6 h-[calc(100vh-1rem)] pb-4 md:pb-6 lg:pb-8 animate-in fade-in duration-500 w-full">
                 
-                {/* ZONA IZQUIERDA: Candado o Reproductor */}
                 <div className="flex-1 bg-black rounded-xl overflow-hidden border border-white/10 relative shadow-2xl min-h-[40vh] lg:min-h-0 lg:h-full flex items-center justify-center group/player">
                     <div className="absolute inset-0 w-full h-full">
                         {isLogged ? (
@@ -1537,7 +1547,6 @@ export default function App() {
                     )}
                 </div>
                 
-                {/* ZONA DERECHA: Ventana de Logueo o Control de Servidores */}
                 <div className="w-full lg:w-[350px] xl:w-[400px] bg-[#1a1a1c] rounded-xl overflow-hidden border border-white/5 flex flex-col shadow-2xl shrink-0 h-auto lg:h-full overflow-y-auto">
                     <div className="bg-[#141414] p-3 border-b border-white/5 flex justify-center items-center shrink-0">
                        <span className="font-bold text-white text-sm flex items-center gap-2">
@@ -1637,25 +1646,28 @@ export default function App() {
           {(activeTab === 'inicio' || activeTab === 'pelis') && (
             <div className="animate-in fade-in duration-300">
               {heroItem && !searchQuery && !selectedCategory && (
-                <div className="relative h-[60vh] sm:h-[70vh] md:h-[85vh] w-full mb-8 md:mb-12 overflow-hidden mt-32 lg:mt-0">
-                   <img src={heroItem.image} className="w-full h-full object-cover object-center md:hidden opacity-70" alt="Hero Mobile" />
-                   <img src={heroItem.backdrop} className="w-full h-full object-cover hidden md:block" alt="Hero Desktop" />
+                <div className="relative h-[50vh] sm:h-[60vh] md:h-[85vh] w-full mb-6 md:mb-12 overflow-hidden mt-20 md:mt-0">
+                   {/* Imagen horizontal tanto en móvil como en PC. En móvil recortada por arriba para que quepa bien el texto */}
+                   <img src={heroItem.backdrop} className="w-full h-full object-cover object-top sm:object-center opacity-80 md:opacity-100" alt="Hero Banner" />
+                   
+                   {/* Gradientes oscurecedores para que destaquen las letras */}
                    <div className="absolute inset-0 bg-gradient-to-r from-[#0f0f0f] via-[#0f0f0f]/80 md:via-[#0f0f0f]/60 to-transparent"></div>
-                   <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f0f] via-transparent to-transparent"></div>
-                   <div className="absolute bottom-10 md:bottom-20 left-6 md:left-12 max-w-[90%] md:max-w-3xl z-10">
-                      <div className="flex items-center gap-2 text-[#e5a00d] font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mb-3 md:mb-4">
+                   <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f0f] via-[#0f0f0f]/40 md:via-transparent to-transparent"></div>
+                   
+                   <div className="absolute bottom-6 md:bottom-20 left-4 md:left-12 max-w-[95%] sm:max-w-[80%] md:max-w-3xl z-10 flex flex-col justify-end">
+                      <div className="flex items-center gap-2 text-[#e5a00d] font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2 md:mb-4">
                         <Film size={14} /> {t.recomendado_para_ti}
                       </div>
-                      <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-2 md:mb-4 leading-snug pb-2 drop-shadow-2xl line-clamp-2 md:line-clamp-3 break-words pr-4">{heroItem.displayTitle || heroItem.title}</h1>
+                      <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-2 md:mb-4 leading-tight drop-shadow-2xl line-clamp-2 md:line-clamp-3 pr-4">{heroItem.displayTitle || heroItem.title}</h1>
                       <p className="text-gray-300 text-xs sm:text-sm md:text-base lg:text-lg line-clamp-2 md:line-clamp-3 font-light mb-4 md:mb-6 max-w-xl leading-relaxed">{heroItem.description}</p>
-                      <button onClick={() => setSelectedItem(heroItem)} className="flex items-center gap-2 md:gap-3 bg-[#e5a00d] hover:bg-[#c9890a] text-black font-extrabold py-2 md:py-3 px-6 md:px-8 rounded-full transition-all hover:scale-105 shadow-2xl shadow-[#e5a00d]/20 w-max text-xs md:text-base">
-                        <Info size={20} className="md:w-6 md:h-6" /> {t.ver_detalles}
+                      <button onClick={() => setSelectedItem(heroItem)} className="flex items-center justify-center gap-2 md:gap-3 bg-[#e5a00d] hover:bg-[#c9890a] text-black font-extrabold py-2 md:py-3 px-6 md:px-8 rounded-full transition-all hover:scale-105 shadow-2xl shadow-[#e5a00d]/20 w-max text-xs md:text-base">
+                        <Info size={18} className="md:w-6 md:h-6" /> {t.ver_detalles}
                       </button>
                    </div>
                 </div>
               )}
 
-              <div className={searchQuery || selectedCategory ? 'pt-40 md:pt-36 px-4 md:px-12' : '-mt-10 md:-mt-24 relative z-20'}>
+              <div className={searchQuery || selectedCategory ? 'pt-40 md:pt-36 px-4 md:px-12' : '-mt-6 md:-mt-24 relative z-20'}>
                 {searchQuery ? (
                    <div>
                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
