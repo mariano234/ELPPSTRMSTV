@@ -663,28 +663,19 @@ export default function App() {
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   
   const langMenuRef = useRef(null);
-  const mobileSearchBtnRef = useRef(null);
-  const mobileSearchInputRef = useRef(null);
 
   const t = UI_TRANSLATIONS[appLang] || UI_TRANSLATIONS['es'];
 
-  // Clicar fuera para cerrar menús (Idioma y Búsqueda móvil)
+  // Clicar fuera SÓLO para cerrar menú de idioma. La barra de búsqueda móvil se gestiona 100% con clics a la lupa.
   useEffect(() => {
     const handleClickOutside = (event) => {
         if (langMenuRef.current && !langMenuRef.current.contains(event.target)) {
             setIsLangMenuOpen(false);
         }
-        if (
-            isMobileSearchOpen &&
-            mobileSearchBtnRef.current && !mobileSearchBtnRef.current.contains(event.target) &&
-            mobileSearchInputRef.current && !mobileSearchInputRef.current.contains(event.target)
-        ) {
-            setIsMobileSearchOpen(false);
-        }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isMobileSearchOpen]);
+  }, []);
 
   // ESTADOS DE LA BASE DE DATOS
   const [items, setItems] = useState([]);
@@ -1450,30 +1441,46 @@ export default function App() {
     <div className={`bg-[#0f0f0f] text-gray-200 font-sans selection:bg-[#e5a00d] selection:text-black overflow-x-hidden ${activeTab === 'directos' ? 'min-h-screen pb-6' : 'min-h-screen pb-20'}`}>
       
       <style>{`
-        /* MAGIA PARA SCROLLBAR OVERLAY EN PC */
         :root { color-scheme: dark; } 
+        
+        /* MAGIA PARA SCROLLBAR OVERLAY EN PC */
         html, body { 
             background-color: #0f0f0f; 
             color: #fff; 
-            width: 100vw; /* CRUCIAL: Obliga al body a ignorar la barra de scroll y usar el ancho total */
-            max-width: 100vw;
-            overflow-x: hidden;
+            
+            /* CRUCIAL: '100%' en lugar de '100vw' elimina la barra horizontal que aparece en PC */
+            width: 100%; 
+            height: 100%;
+            overflow-x: hidden; 
+            overflow-y: overlay; /* Permite barras flotantes nativas en navegadores que lo soportan */
             margin: 0;
             padding: 0;
         }
         
-        /* Hacemos la barra completamente transparente y simulamos que el pulgar flota */
-        ::-webkit-scrollbar { width: 8px; height: 8px; background: transparent; }
-        ::-webkit-scrollbar-track { background: transparent; border: none; }
+        /* Estilo de la Scrollbar general */
+        ::-webkit-scrollbar { 
+            width: 8px; /* Ancho cómodo para clicar en PC */
+            background: transparent; 
+        }
         
-        /* El "pulgar" (lo que se mueve) tiene borde transparente para que quede más fino y estilizado */
+        /* Ocultamos el raíl/fondo por completo */
+        ::-webkit-scrollbar-track { 
+            background: transparent; 
+            border: none; 
+        }
+        
+        /* El "pulgar": le ponemos el fondo del color de la web para simular padding y hacerlo ultra-fino y flotante */
         ::-webkit-scrollbar-thumb { 
-            background-color: rgba(255, 255, 255, 0.2); 
-            border-radius: 10px; 
-            border: 2px solid transparent; 
+            background-color: rgba(255, 255, 255, 0.3); 
+            border-radius: 20px; 
+            border: 3px solid #0f0f0f; /* Truco mágico: borde del mismo color que la página */
             background-clip: content-box; 
         }
-        ::-webkit-scrollbar-thumb:hover { background-color: rgba(229, 160, 13, 0.8); }
+        
+        ::-webkit-scrollbar-thumb:hover { 
+            background-color: rgba(229, 160, 13, 0.8); 
+            border: 2px solid #0f0f0f; /* Se hace un pelín más gruesa al pasar el ratón */
+        }
         
         * { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.2) transparent; }
       `}</style>
@@ -1486,7 +1493,7 @@ export default function App() {
           <div className="flex items-center justify-between w-full">
              <div className="flex items-center gap-6">
                 {/* Logo */}
-                <div className="flex items-center gap-1 text-[#e5a00d] font-black text-2xl md:text-3xl tracking-tighter cursor-pointer shrink-0" onClick={() => {setActiveTab('inicio'); setSearchQuery(""); setSelectedCategory(null);}}>
+                <div className="flex items-center gap-1 text-[#e5a00d] font-black text-2xl md:text-3xl tracking-tighter cursor-pointer shrink-0" onClick={() => {setActiveTab('inicio'); setSearchQuery(""); setSelectedCategory(null); setIsMobileSearchOpen(false);}}>
                   <ChevronRight size={28} className="-mr-2 md:-mr-3" />
                   <span>ElPepe<span className="text-white font-light">Streams</span></span>
                 </div>
@@ -1509,9 +1516,9 @@ export default function App() {
                     </div>
                 )}
 
-                {/* Botón de Búsqueda (Solo en Móvil - A la izquierda del idioma) */}
+                {/* Botón de Lupa Búsqueda (Solo en Móvil - A la izquierda del idioma) */}
                 {(activeTab === 'inicio' || activeTab === 'pelis') && (
-                    <div className="lg:hidden" ref={mobileSearchBtnRef}>
+                    <div className="lg:hidden">
                         <div 
                             className={`p-2 rounded-full border border-white/10 cursor-pointer transition-all flex items-center justify-center ${isMobileSearchOpen ? 'bg-[#e5a00d] text-black border-[#e5a00d]' : 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white'}`}
                             onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
@@ -1554,10 +1561,10 @@ export default function App() {
              </div>
           </div>
 
-          {/* Fila 2 (Solo Móvil): Tabs Centrados O Barra de búsqueda extendida */}
+          {/* Fila 2 (Solo Móvil): Tabs Centrados O Barra de búsqueda reemplazando los tabs */}
           <div className="flex lg:hidden items-center justify-center w-full min-h-[38px] overflow-hidden">
              {isMobileSearchOpen && (activeTab === 'inicio' || activeTab === 'pelis') ? (
-                 <div className="w-full animate-in fade-in slide-in-from-right-4 duration-300" ref={mobileSearchInputRef}>
+                 <div className="w-full animate-in fade-in slide-in-from-right-4 duration-300">
                     <div className="relative w-full">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                         <input 
@@ -1576,7 +1583,7 @@ export default function App() {
                     </div>
                  </div>
              ) : (
-                 <div className="flex items-center justify-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide text-[11px] font-bold w-full animate-in fade-in slide-in-from-left-4 duration-300">
+                 <div className="flex items-center justify-center gap-3 sm:gap-4 overflow-x-auto scrollbar-hide text-[11px] font-bold w-full animate-in fade-in slide-in-from-left-4 duration-300">
                      <button onClick={() => {setActiveTab('inicio'); setSearchQuery(""); setSelectedCategory(null); setIsMobileSearchOpen(false);}} className={`transition-colors whitespace-nowrap px-3 py-1.5 rounded-full ${activeTab === 'inicio' ? 'text-black bg-[#e5a00d]' : 'text-gray-400 hover:text-white bg-white/5'}`}>{t.inicio}</button>
                      <button onClick={() => {setActiveTab('pelis'); setSearchQuery(""); setSelectedCategory(null); setIsMobileSearchOpen(false);}} className={`transition-colors whitespace-nowrap px-3 py-1.5 rounded-full ${activeTab === 'pelis' ? 'text-black bg-[#e5a00d]' : 'text-gray-400 hover:text-white bg-white/5'}`}>{t.pelis}</button>
                      <button onClick={() => {setActiveTab('series'); setSearchQuery(""); setSelectedCategory(null); setIsMobileSearchOpen(false);}} className={`transition-colors whitespace-nowrap px-3 py-1.5 rounded-full ${activeTab === 'series' ? 'text-black bg-[#e5a00d]' : 'text-gray-400 hover:text-white bg-white/5'}`}>{t.series}</button>
