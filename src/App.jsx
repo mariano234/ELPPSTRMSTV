@@ -677,6 +677,16 @@ export default function App() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Función para manejar el clic en la lupa móvil
+  const toggleMobileSearch = () => {
+      if (isMobileSearchOpen) {
+          setIsMobileSearchOpen(false);
+          setSearchQuery(""); // Limpia la búsqueda para volver al contenido principal
+      } else {
+          setIsMobileSearchOpen(true);
+      }
+  };
+
   // ESTADOS DE LA BASE DE DATOS
   const [items, setItems] = useState([]);
   const [sagas, setSagas] = useState([]);
@@ -1443,46 +1453,44 @@ export default function App() {
       <style>{`
         :root { color-scheme: dark; } 
         
-        /* MAGIA PARA SCROLLBAR OVERLAY EN PC */
+        /* MAGIA PARA SCROLLBAR EN PC (Bulletproof) */
         html, body { 
             background-color: #0f0f0f; 
             color: #fff; 
-            
-            /* CRUCIAL: '100%' en lugar de '100vw' elimina la barra horizontal que aparece en PC */
             width: 100%; 
             height: 100%;
             overflow-x: hidden; 
-            overflow-y: overlay; /* Permite barras flotantes nativas en navegadores que lo soportan */
             margin: 0;
             padding: 0;
         }
         
-        /* Estilo de la Scrollbar general */
+        /* Ocultamos por completo el fondo/carril de la barra haciéndola del MISMO color exacto que la app */
         ::-webkit-scrollbar { 
-            width: 8px; /* Ancho cómodo para clicar en PC */
-            background: transparent; 
+            width: 10px; /* Tamaño del carril (no visible por el color) */
+            background: #0f0f0f; 
         }
         
-        /* Ocultamos el raíl/fondo por completo */
         ::-webkit-scrollbar-track { 
-            background: transparent; 
+            background: #0f0f0f; 
             border: none; 
         }
         
-        /* El "pulgar": le ponemos el fondo del color de la web para simular padding y hacerlo ultra-fino y flotante */
+        /* Diseñamos el pulgar ("lo que arrastras") como si flotase */
         ::-webkit-scrollbar-thumb { 
-            background-color: rgba(255, 255, 255, 0.3); 
-            border-radius: 20px; 
-            border: 3px solid #0f0f0f; /* Truco mágico: borde del mismo color que la página */
+            background-color: #333; /* Color sutil del pulgar en reposo */
+            border-radius: 10px; 
+            /* El borde del mismo color que el fondo crea un 'margen' mágico y lo hace parecer más fino */
+            border: 2px solid #0f0f0f; 
             background-clip: content-box; 
         }
         
+        /* Cuando pasas el ratón por encima brilla con el color de la marca */
         ::-webkit-scrollbar-thumb:hover { 
-            background-color: rgba(229, 160, 13, 0.8); 
-            border: 2px solid #0f0f0f; /* Se hace un pelín más gruesa al pasar el ratón */
+            background-color: #e5a00d; 
+            border: 1px solid #0f0f0f; /* Un pelín más ancho al interactuar */
         }
         
-        * { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.2) transparent; }
+        * { scrollbar-width: thin; scrollbar-color: #333 #0f0f0f; }
       `}</style>
 
       {/* --- NAVBAR --- */}
@@ -1521,7 +1529,7 @@ export default function App() {
                     <div className="lg:hidden">
                         <div 
                             className={`p-2 rounded-full border border-white/10 cursor-pointer transition-all flex items-center justify-center ${isMobileSearchOpen ? 'bg-[#e5a00d] text-black border-[#e5a00d]' : 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white'}`}
-                            onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
+                            onClick={toggleMobileSearch}
                         >
                             <Search size={18} />
                         </div>
@@ -1583,7 +1591,7 @@ export default function App() {
                     </div>
                  </div>
              ) : (
-                 <div className="flex items-center justify-center gap-3 sm:gap-4 overflow-x-auto scrollbar-hide text-[11px] font-bold w-full animate-in fade-in slide-in-from-left-4 duration-300">
+                 <div className="flex items-center justify-center gap-5 sm:gap-8 overflow-x-auto scrollbar-hide text-[11px] font-bold w-full animate-in fade-in slide-in-from-left-4 duration-300">
                      <button onClick={() => {setActiveTab('inicio'); setSearchQuery(""); setSelectedCategory(null); setIsMobileSearchOpen(false);}} className={`transition-colors whitespace-nowrap px-3 py-1.5 rounded-full ${activeTab === 'inicio' ? 'text-black bg-[#e5a00d]' : 'text-gray-400 hover:text-white bg-white/5'}`}>{t.inicio}</button>
                      <button onClick={() => {setActiveTab('pelis'); setSearchQuery(""); setSelectedCategory(null); setIsMobileSearchOpen(false);}} className={`transition-colors whitespace-nowrap px-3 py-1.5 rounded-full ${activeTab === 'pelis' ? 'text-black bg-[#e5a00d]' : 'text-gray-400 hover:text-white bg-white/5'}`}>{t.pelis}</button>
                      <button onClick={() => {setActiveTab('series'); setSearchQuery(""); setSelectedCategory(null); setIsMobileSearchOpen(false);}} className={`transition-colors whitespace-nowrap px-3 py-1.5 rounded-full ${activeTab === 'series' ? 'text-black bg-[#e5a00d]' : 'text-gray-400 hover:text-white bg-white/5'}`}>{t.series}</button>
