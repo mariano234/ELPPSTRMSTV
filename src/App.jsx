@@ -657,29 +657,34 @@ let isFetchingDiscord = false;
 export default function App() {
   const initParams = useMemo(getInitialURLParams, []);
 
-  // ESTADOS DEL IDIOMA
+  // ESTADOS DEL IDIOMA Y BÚSQUEDA MÓVIL
   const [appLang, setAppLang] = useState(localStorage.getItem('elpepestreams_lang') || 'es');
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  
   const langMenuRef = useRef(null);
+  const mobileSearchBtnRef = useRef(null);
+  const mobileSearchInputRef = useRef(null);
+
   const t = UI_TRANSLATIONS[appLang] || UI_TRANSLATIONS['es'];
 
-  // ESTADO BUSCADOR MÓVIL
-  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
-  const mobileSearchRef = useRef(null);
-
-  // Clicar fuera para cerrar menús
+  // Clicar fuera para cerrar menús (Idioma y Búsqueda móvil)
   useEffect(() => {
     const handleClickOutside = (event) => {
         if (langMenuRef.current && !langMenuRef.current.contains(event.target)) {
             setIsLangMenuOpen(false);
         }
-        if (mobileSearchRef.current && !mobileSearchRef.current.contains(event.target)) {
+        if (
+            isMobileSearchOpen &&
+            mobileSearchBtnRef.current && !mobileSearchBtnRef.current.contains(event.target) &&
+            mobileSearchInputRef.current && !mobileSearchInputRef.current.contains(event.target)
+        ) {
             setIsMobileSearchOpen(false);
         }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isMobileSearchOpen]);
 
   // ESTADOS DE LA BASE DE DATOS
   const [items, setItems] = useState([]);
@@ -1445,30 +1450,32 @@ export default function App() {
     <div className={`bg-[#0f0f0f] text-gray-200 font-sans selection:bg-[#e5a00d] selection:text-black overflow-x-hidden ${activeTab === 'directos' ? 'min-h-screen pb-6' : 'min-h-screen pb-20'}`}>
       
       <style>{`
-        /* SCROLLBAR FLOTANTE ESTILO NATIVO (SIN RAIL/TRACK) */
+        /* MAGIA PARA SCROLLBAR OVERLAY EN PC */
         :root { color-scheme: dark; } 
         html, body { 
             background-color: #0f0f0f; 
             color: #fff; 
-            width: 100%; /* Usamos 100% en lugar de 100vw para evitar saltos horizontales */
+            width: 100vw; /* CRUCIAL: Obliga al body a ignorar la barra de scroll y usar el ancho total */
+            max-width: 100vw;
             overflow-x: hidden;
             margin: 0;
             padding: 0;
-            overflow-y: overlay; /* Activa el modo superposición si el navegador lo soporta */
         }
         
-        /* Barrita más fina y sutil */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        
-        /* ¡MAGIA! El fondo ahora es 100% transparente para que no robe espacio ni se vea feo */
+        /* Hacemos la barra completamente transparente y simulamos que el pulgar flota */
+        ::-webkit-scrollbar { width: 8px; height: 8px; background: transparent; }
         ::-webkit-scrollbar-track { background: transparent; border: none; }
         
-        /* El "pulgar" (lo que se mueve) con algo de transparencia y estilo redondeado */
-        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #e5a00d; }
+        /* El "pulgar" (lo que se mueve) tiene borde transparente para que quede más fino y estilizado */
+        ::-webkit-scrollbar-thumb { 
+            background-color: rgba(255, 255, 255, 0.2); 
+            border-radius: 10px; 
+            border: 2px solid transparent; 
+            background-clip: content-box; 
+        }
+        ::-webkit-scrollbar-thumb:hover { background-color: rgba(229, 160, 13, 0.8); }
         
-        /* Estándar moderno equivalente */
-        * { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.3) transparent; }
+        * { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.2) transparent; }
       `}</style>
 
       {/* --- NAVBAR --- */}
@@ -1499,6 +1506,18 @@ export default function App() {
                     <div className="hidden lg:block relative group w-64">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#e5a00d] transition-colors" size={16} />
                       <input type="text" placeholder={t.buscar} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="bg-neutral-900/60 border border-white/10 rounded-full py-2 pl-9 pr-4 w-full focus:outline-none focus:border-[#e5a00d] focus:bg-black transition-all text-sm backdrop-blur-sm" />
+                    </div>
+                )}
+
+                {/* Botón de Búsqueda (Solo en Móvil - A la izquierda del idioma) */}
+                {(activeTab === 'inicio' || activeTab === 'pelis') && (
+                    <div className="lg:hidden" ref={mobileSearchBtnRef}>
+                        <div 
+                            className={`p-2 rounded-full border border-white/10 cursor-pointer transition-all flex items-center justify-center ${isMobileSearchOpen ? 'bg-[#e5a00d] text-black border-[#e5a00d]' : 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white'}`}
+                            onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
+                        >
+                            <Search size={18} />
+                        </div>
                     </div>
                 )}
                 
@@ -1535,41 +1554,33 @@ export default function App() {
              </div>
           </div>
 
-          {/* Fila 2 (Solo Móvil): Tabs desplazables + Botón Lupa */}
-          <div className="flex lg:hidden items-center justify-between gap-3 w-full relative">
-             <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide text-[11px] font-bold flex-1">
-                 <button onClick={() => {setActiveTab('inicio'); setSearchQuery(""); setSelectedCategory(null);}} className={`transition-colors whitespace-nowrap px-2 py-1.5 rounded-md ${activeTab === 'inicio' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white'}`}>{t.inicio}</button>
-                 <button onClick={() => {setActiveTab('pelis'); setSearchQuery(""); setSelectedCategory(null);}} className={`transition-colors whitespace-nowrap px-2 py-1.5 rounded-md ${activeTab === 'pelis' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white'}`}>{t.pelis}</button>
-                 <button onClick={() => {setActiveTab('series'); setSearchQuery(""); setSelectedCategory(null);}} className={`transition-colors whitespace-nowrap px-2 py-1.5 rounded-md ${activeTab === 'series' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white'}`}>{t.series}</button>
-                 <button onClick={() => {setActiveTab('directos'); setSearchQuery(""); setSelectedCategory(null);}} className={`transition-colors whitespace-nowrap px-2 py-1.5 rounded-md ${activeTab === 'directos' ? 'text-[#e5a00d] bg-white/5' : 'text-gray-400 hover:text-white'}`}>{t.directos}</button>
-             </div>
-             
-             {/* El icono de buscar que despliega el input en móvil */}
-             {(activeTab === 'inicio' || activeTab === 'pelis') && (
-                 <div className="relative shrink-0" ref={mobileSearchRef}>
-                    <button 
-                        onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)} 
-                        className={`p-2 rounded-full transition-all flex items-center justify-center ${isMobileSearchOpen ? 'bg-[#e5a00d] text-black' : 'bg-white/5 text-gray-400 hover:text-white'}`}
-                    >
-                        <Search size={16} />
-                    </button>
-
-                    {/* El input que se muestra flotante debajo al pulsar la lupa */}
-                    {isMobileSearchOpen && (
-                        <div className="absolute right-0 top-full mt-3 w-[85vw] sm:w-80 z-50 animate-in fade-in slide-in-from-top-2 shadow-2xl">
-                            <div className="relative w-full">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                <input 
-                                    autoFocus
-                                    type="text" 
-                                    placeholder={t.buscar} 
-                                    value={searchQuery} 
-                                    onChange={(e) => setSearchQuery(e.target.value)} 
-                                    className="bg-[#141414] border border-white/20 rounded-full py-3 pl-11 pr-4 w-full focus:outline-none focus:border-[#e5a00d] text-sm text-white shadow-2xl" 
-                                />
-                            </div>
-                        </div>
-                    )}
+          {/* Fila 2 (Solo Móvil): Tabs Centrados O Barra de búsqueda extendida */}
+          <div className="flex lg:hidden items-center justify-center w-full min-h-[38px] overflow-hidden">
+             {isMobileSearchOpen && (activeTab === 'inicio' || activeTab === 'pelis') ? (
+                 <div className="w-full animate-in fade-in slide-in-from-right-4 duration-300" ref={mobileSearchInputRef}>
+                    <div className="relative w-full">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                        <input 
+                            autoFocus
+                            type="text" 
+                            placeholder={t.buscar} 
+                            value={searchQuery} 
+                            onChange={(e) => setSearchQuery(e.target.value)} 
+                            className="bg-[#1a1a1c] border border-white/20 rounded-full py-2 pl-9 pr-10 w-full focus:outline-none focus:border-[#e5a00d] text-sm text-white shadow-2xl" 
+                        />
+                        {searchQuery && (
+                            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                                <X size={16} />
+                            </button>
+                        )}
+                    </div>
+                 </div>
+             ) : (
+                 <div className="flex items-center justify-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide text-[11px] font-bold w-full animate-in fade-in slide-in-from-left-4 duration-300">
+                     <button onClick={() => {setActiveTab('inicio'); setSearchQuery(""); setSelectedCategory(null); setIsMobileSearchOpen(false);}} className={`transition-colors whitespace-nowrap px-3 py-1.5 rounded-full ${activeTab === 'inicio' ? 'text-black bg-[#e5a00d]' : 'text-gray-400 hover:text-white bg-white/5'}`}>{t.inicio}</button>
+                     <button onClick={() => {setActiveTab('pelis'); setSearchQuery(""); setSelectedCategory(null); setIsMobileSearchOpen(false);}} className={`transition-colors whitespace-nowrap px-3 py-1.5 rounded-full ${activeTab === 'pelis' ? 'text-black bg-[#e5a00d]' : 'text-gray-400 hover:text-white bg-white/5'}`}>{t.pelis}</button>
+                     <button onClick={() => {setActiveTab('series'); setSearchQuery(""); setSelectedCategory(null); setIsMobileSearchOpen(false);}} className={`transition-colors whitespace-nowrap px-3 py-1.5 rounded-full ${activeTab === 'series' ? 'text-black bg-[#e5a00d]' : 'text-gray-400 hover:text-white bg-white/5'}`}>{t.series}</button>
+                     <button onClick={() => {setActiveTab('directos'); setSearchQuery(""); setSelectedCategory(null); setIsMobileSearchOpen(false);}} className={`transition-colors whitespace-nowrap px-3 py-1.5 rounded-full ${activeTab === 'directos' ? 'text-black bg-[#e5a00d]' : 'text-gray-400 hover:text-white bg-white/5'}`}>{t.directos}</button>
                  </div>
              )}
           </div>
