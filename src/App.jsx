@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Home, Film, Download, X, Info, ChevronRight, ChevronLeft, AlertTriangle, Monitor, Layers, Star, Grid, List as ListIcon, Filter, ArrowDownWideNarrow, Globe, Calendar, Tv, Radio, Server, Lock, CheckCircle, RefreshCw } from 'lucide-react';
+import { Search, Home, Film, Download, X, Info, ChevronRight, ChevronLeft, AlertTriangle, Monitor, Layers, Star, Grid, List as ListIcon, Filter, ArrowDownWideNarrow, Globe, Calendar, Tv, Radio, Server, Lock, CheckCircle, RefreshCw, Cast } from 'lucide-react';
 
 // --- CONFIGURACIÓN ---
 const TMDB_API_KEY = "342815a2b6a677bbc29fd13a6e3c1c3a"; 
@@ -111,7 +111,8 @@ const UI_TRANSLATIONS = {
     credenciales_inyectadas: 'Tus credenciales se han inyectado automáticamente en el reproductor. ¡Disfruta del directo!',
     selecciona_servidor: 'Selecciona tu Servidor',
     servidor_no_disp: 'Servidor Premium no disponible con tu rol actual.',
-    panel_servidor: 'Panel de Control'
+    panel_servidor: 'Panel de Control',
+    enviar_tv: 'Enviar a TV (Chromecast)'
   },
   'ca': {
     inicio: 'INICI', pelis: 'PEL·LIS', series: 'SÈRIES', directos: 'DIRECTES',
@@ -138,7 +139,8 @@ const UI_TRANSLATIONS = {
     credenciales_inyectadas: 'Les teves credencials s\'han injectat automàticament al reproductor. Gaudeix del directe!',
     selecciona_servidor: 'Selecciona el teu Servidor',
     servidor_no_disp: 'Servidor Premium no disponible amb el teu rol actual.',
-    panel_servidor: 'Tauler de Control'
+    panel_servidor: 'Tauler de Control',
+    enviar_tv: 'Enviar a TV (Chromecast)'
   },
   'gl': {
     inicio: 'INICIO', pelis: 'PELIS', series: 'SERIES', directos: 'DIRECTOS',
@@ -165,7 +167,8 @@ const UI_TRANSLATIONS = {
     credenciales_inyectadas: 'As túas credenciais inxectáronse automaticamente no reprodutor. Goza do directo!',
     selecciona_servidor: 'Selecciona o teu Servidor',
     servidor_no_disp: 'Servidor Premium non dispoñible co teu rol actual.',
-    panel_servidor: 'Panel de Control'
+    panel_servidor: 'Panel de Control',
+    enviar_tv: 'Enviar a TV (Chromecast)'
   },
   'eu': {
     inicio: 'HASIERA', pelis: 'FILMAK', series: 'TELESAILAK', directos: 'ZUZENEKOAK',
@@ -192,7 +195,8 @@ const UI_TRANSLATIONS = {
     credenciales_inyectadas: 'Zure kredentzialak automatikoki txertatu dira erreproduzitzailean. Gozatu zuzenekoaz!',
     selecciona_servidor: 'Hautatu zure Zerbitzaria',
     servidor_no_disp: 'Premium Zerbitzaria ez dago erabilgarri zure uneko rolarekin.',
-    panel_servidor: 'Kontrol Panela'
+    panel_servidor: 'Kontrol Panela',
+    enviar_tv: 'Bidali telebistara'
   }
 };
 
@@ -219,6 +223,16 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
     
     const [error, setError] = useState(null);
     const [status, setStatus] = useState('Autenticando...');
+
+    const handleCastRequest = () => {
+        if (playerInstanceRef.current && playerInstanceRef.current.cast) {
+            try {
+                playerInstanceRef.current.cast.request();
+            } catch (e) {
+                console.log("Error solicitando Cast:", e);
+            }
+        }
+    };
 
     useEffect(() => {
         let isMounted = true;
@@ -392,7 +406,7 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
     }, [streamSid, streamPassword, channel, usePatreon]);
 
     return (
-        <div className="w-full h-full bg-black relative flex items-center justify-center">
+        <div className="w-full h-full bg-black relative flex items-center justify-center group/vid">
             {status && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-20 flex-col gap-4">
                     <div className="w-10 h-10 border-4 border-[#e5a00d] border-t-transparent rounded-full animate-spin"></div>
@@ -406,7 +420,22 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                     <span className="text-gray-400 text-sm max-w-md">{error}</span>
                 </div>
             )}
+            
+            {/* Contenedor del reproductor */}
             <div ref={containerRef} className="w-full h-full absolute inset-0 z-10 flex flex-col justify-center"></div>
+
+            {/* Botón flotante para Chromecast/TV en esquina superior derecha */}
+            {!status && !error && (
+                <div className="absolute top-4 right-4 z-30 opacity-0 group-hover/vid:opacity-100 transition-opacity duration-300">
+                    <button
+                        onClick={handleCastRequest}
+                        className="bg-black/60 hover:bg-[#e5a00d] text-white hover:text-black backdrop-blur-md border border-white/10 p-2.5 rounded-full transition-all shadow-lg flex items-center justify-center"
+                        title={t.enviar_tv}
+                    >
+                        <Cast size={20} />
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
@@ -666,7 +695,7 @@ export default function App() {
 
   const t = UI_TRANSLATIONS[appLang] || UI_TRANSLATIONS['es'];
 
-  // Clicar fuera SÓLO para cerrar menú de idioma. La barra de búsqueda móvil se gestiona 100% con clics a la lupa.
+  // Clicar fuera SÓLO para cerrar menú de idioma
   useEffect(() => {
     const handleClickOutside = (event) => {
         if (langMenuRef.current && !langMenuRef.current.contains(event.target)) {
@@ -677,11 +706,10 @@ export default function App() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Función para manejar el clic en la lupa móvil
   const toggleMobileSearch = () => {
       if (isMobileSearchOpen) {
           setIsMobileSearchOpen(false);
-          setSearchQuery(""); // Limpia la búsqueda para volver al contenido principal
+          setSearchQuery(""); 
       } else {
           setIsMobileSearchOpen(true);
       }
@@ -733,9 +761,10 @@ export default function App() {
     }
     link.href = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍿</text></svg>";
     
-    // El scroll funciona de forma nativa ahora que el body no tiene height:100%
+    // El scroll funciona de forma nativa. 
+    // Añadido { passive: true } para mejorar drásticamente el rendimiento en Firefox y móviles
     const handleScroll = () => setIsScrolled(window.scrollY > 30);
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -1449,12 +1478,11 @@ export default function App() {
   const isLogged = streamPassword && !streamPassword.includes('❌') && !streamPassword.includes('••••') && !streamPassword.includes('Verificando') && !streamPassword.includes('Verificant') && !streamPassword.includes('Egiaztatzen');
 
   return (
-    <div className={`bg-[#0f0f0f] text-gray-200 font-sans selection:bg-[#e5a00d] selection:text-black overflow-x-hidden ${activeTab === 'directos' ? 'min-h-screen pb-6' : 'min-h-screen pb-20'}`}>
+    <div className={`bg-[#0f0f0f] text-gray-200 font-sans selection:bg-[#e5a00d] selection:text-black ${activeTab === 'directos' ? 'h-[100dvh] overflow-hidden flex flex-col' : 'min-h-screen overflow-x-hidden pb-20'}`}>
       
       <style>{`
         :root { color-scheme: dark; } 
         
-        /* Eliminar el height: 100% de html/body para que el scroll nativo de window vuelva a funcionar */
         html, body { 
             background-color: #0f0f0f; 
             color: #fff; 
@@ -1463,29 +1491,24 @@ export default function App() {
             padding: 0;
         }
 
-        /* Usando EXACTAMENTE el código recomendado por el usuario para el scroll overlay */
         html {
-            /* Estándar (Firefox y Chrome moderno) */
-            scrollbar-color: rgba(255, 255, 255, 0.3) transparent; /* Ajustado al tema oscuro */
+            scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
             scrollbar-width: thin;
-
-            /* Forzar overlay en Chrome/Edge (aunque sea antiguo, sigue siendo efectivo) */
             overflow-y: overlay; 
         }
         
-        /* Control fino para Chrome/Safari/Edge */
         ::-webkit-scrollbar {
             width: 8px;
         }
         ::-webkit-scrollbar-track {
-            background: transparent; /* Permite ver las imágenes debajo */
+            background: transparent; 
         }
         ::-webkit-scrollbar-thumb {
-            background-color: rgba(255, 255, 255, 0.3); /* Un blanco sutil para el fondo oscuro */
+            background-color: rgba(255, 255, 255, 0.3); 
             border-radius: 10px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background-color: rgba(229, 160, 13, 0.8); /* Brilla con color acento al pasar el ratón */
+            background-color: rgba(229, 160, 13, 0.8);
         }
       `}</style>
 
@@ -1520,7 +1543,7 @@ export default function App() {
                     </div>
                 )}
 
-                {/* Botón de Lupa Búsqueda (Solo en Móvil - A la izquierda del idioma) */}
+                {/* Botón de Lupa Búsqueda (Solo en Móvil) */}
                 {(activeTab === 'inicio' || activeTab === 'pelis') && (
                     <div className="lg:hidden">
                         <div 
@@ -1532,7 +1555,7 @@ export default function App() {
                     </div>
                 )}
                 
-                {/* Menú de Idioma (Móvil y PC) */}
+                {/* Menú de Idioma */}
                 <div className="relative group shrink-0" ref={langMenuRef}>
                    <div 
                       className={`bg-white/5 hover:bg-white/10 p-2 rounded-full border border-white/10 cursor-pointer transition-all flex items-center justify-center ${isLangMenuOpen ? 'bg-white/10 ring-1 ring-white/20' : ''}`}
@@ -1565,7 +1588,7 @@ export default function App() {
              </div>
           </div>
 
-          {/* Fila 2 (Solo Móvil): Tabs Centrados O Barra de búsqueda reemplazando los tabs */}
+          {/* Fila 2 (Solo Móvil): Tabs o Buscador */}
           <div className="flex lg:hidden items-center justify-center w-full min-h-[38px] overflow-hidden">
              {isMobileSearchOpen && (activeTab === 'inicio' || activeTab === 'pelis') ? (
                  <div className="w-full animate-in fade-in slide-in-from-right-4 duration-300">
@@ -1612,25 +1635,26 @@ export default function App() {
       ) : (
         <>
           {activeTab === 'directos' && (
-            <div className="pt-28 md:pt-[5.5rem] px-4 md:px-12 flex flex-col lg:flex-row gap-4 md:gap-6 h-[calc(100vh-1rem)] pb-4 md:pb-6 lg:pb-8 animate-in fade-in duration-500 w-full">
+            <div className="flex-1 mt-[4.5rem] md:mt-[5rem] px-4 md:px-12 flex flex-col lg:flex-row gap-4 md:gap-6 pb-4 md:pb-6 w-full min-h-0 animate-in fade-in duration-500">
                 
-                <div className="flex-1 bg-black rounded-xl overflow-hidden border border-white/10 relative shadow-2xl min-h-[40vh] lg:min-h-0 lg:h-full flex items-center justify-center group/player">
+                {/* CONTENEDOR VÍDEO: En móvil mantiene 16:9, en PC estira hasta abajo */}
+                <div className="w-full lg:flex-1 bg-black rounded-xl overflow-hidden border border-white/10 relative shadow-2xl flex items-center justify-center shrink-0 lg:shrink aspect-video lg:aspect-auto min-h-0">
                     <div className="absolute inset-0 w-full h-full">
                         {isLogged ? (
                             <NativeStreamPlayer streamSid={streamSid} streamPassword={streamPassword} channel={STREAM_CHANNEL} usePatreon={usePatreon} t={t} />
                         ) : (
                             <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-900/80 backdrop-blur-md relative z-10">
-                                <div className="bg-[#5865F2]/20 p-6 rounded-full mb-6 border border-[#5865F2]/30 shadow-[0_0_30px_rgba(88,101,242,0.3)]">
-                                    <Lock size={64} className="text-[#5865F2]" />
+                                <div className="bg-[#5865F2]/20 p-4 md:p-6 rounded-full mb-4 md:mb-6 border border-[#5865F2]/30 shadow-[0_0_30px_rgba(88,101,242,0.3)]">
+                                    <Lock size={48} className="md:w-16 md:h-16 text-[#5865F2]" />
                                 </div>
-                                <h2 className="text-2xl font-bold text-white mb-2">{t.acceso_premium}</h2>
-                                <p className="text-gray-400 text-center max-w-sm px-4">{t.desc_directo}</p>
+                                <h2 className="text-xl md:text-2xl font-bold text-white mb-2">{t.acceso_premium}</h2>
+                                <p className="text-gray-400 text-xs md:text-sm text-center max-w-sm px-4">{t.desc_directo}</p>
                             </div>
                         )}
                     </div>
                     
                     {isLogged && (
-                        <div className="absolute top-4 left-4 z-30 pointer-events-none opacity-0 group-hover/player:opacity-100 transition-opacity">
+                        <div className="absolute top-4 left-4 z-30 pointer-events-none opacity-0 group-hover/vid:opacity-100 transition-opacity duration-300">
                             <span className="bg-black/60 backdrop-blur-md border border-white/10 text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-2 uppercase tracking-widest shadow-lg">
                                 <Server size={12} className={usePatreon ? 'text-[#e5a00d]' : 'text-blue-400'} /> 
                                 {usePatreon ? t.serv_patreon : t.serv_normal}
@@ -1639,7 +1663,8 @@ export default function App() {
                     )}
                 </div>
                 
-                <div className="w-full lg:w-[350px] xl:w-[400px] bg-[#1a1a1c] rounded-xl overflow-hidden border border-white/5 flex flex-col shadow-2xl shrink-0 h-auto lg:h-full overflow-y-auto">
+                {/* CONTENEDOR PANEL: En móvil pilla todo el espacio que sobra del vídeo */}
+                <div className="flex-1 lg:w-[350px] xl:w-[400px] bg-[#1a1a1c] rounded-xl overflow-hidden border border-white/5 flex flex-col shadow-2xl shrink-0 lg:shrink-0 min-h-0">
                     <div className="bg-[#141414] p-3 border-b border-white/5 flex justify-center items-center shrink-0">
                        <span className="font-bold text-white text-sm flex items-center gap-2">
                            {isLogged ? <Server size={16} className="text-[#e5a00d]" /> : <Lock size={16} className="text-[#5865F2]" />}
@@ -1647,10 +1672,11 @@ export default function App() {
                        </span>
                     </div>
                     
-                    <div className="flex flex-col flex-1 p-4 md:p-6 justify-start items-center text-center">
+                    {/* SCROLL INTERNO SOLO AQUÍ si el texto es muy largo */}
+                    <div className="flex flex-col flex-1 p-4 md:p-6 justify-start items-center text-center overflow-y-auto">
                         {isLogged ? (
-                            <div className="flex flex-col items-center w-full h-full animate-in fade-in zoom-in duration-300">
-                                <div className="bg-green-500/10 p-4 rounded-full mb-4 border border-green-500/30 shadow-[0_0_30px_rgba(34,197,94,0.15)] shrink-0">
+                            <div className="flex flex-col items-center w-full min-h-full animate-in fade-in zoom-in duration-300">
+                                <div className="bg-green-500/10 p-4 rounded-full mb-4 border border-green-500/30 shadow-[0_0_30px_rgba(34,197,94,0.15)] shrink-0 mt-auto">
                                     <CheckCircle size={40} className="text-green-500" />
                                 </div>
                                 <h3 className="text-xl md:text-2xl font-black text-white mb-2 shrink-0">{t.acceso_concedido}</h3>
@@ -1658,7 +1684,7 @@ export default function App() {
                                     {t.credenciales_inyectadas}
                                 </p>
 
-                                <div className="w-full bg-black/40 border border-white/10 rounded-xl p-4 md:p-5 mb-6 shadow-inner shrink-0">
+                                <div className="w-full bg-black/40 border border-white/10 rounded-xl p-4 md:p-5 mb-6 shadow-inner shrink-0 mt-auto">
                                     <span className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-widest font-bold flex items-center justify-center gap-2 mb-4">
                                         <Server size={14} className="text-[#e5a00d]" /> {t.selecciona_servidor}
                                     </span>
@@ -1686,7 +1712,7 @@ export default function App() {
                                     )}
                                 </div>
 
-                                <div className="mt-auto w-full pt-4">
+                                <div className="mt-auto w-full pt-2 pb-2">
                                     <a 
                                         href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify"
                                         className="w-full font-bold py-3 px-6 rounded-lg transition-all border border-white/10 bg-[#202225] hover:bg-[#2f3136] text-gray-300 text-xs flex items-center justify-center gap-2 group"
@@ -1696,7 +1722,7 @@ export default function App() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center w-full h-full animate-in fade-in duration-300">
+                            <div className="flex flex-col items-center justify-center w-full h-full animate-in fade-in duration-300 my-auto">
                                 <div className="bg-[#5865F2]/10 p-4 rounded-full mb-4 border border-[#5865F2]/30 shrink-0">
                                     <svg className="w-10 h-10 text-[#5865F2]" fill="currentColor" viewBox="0 0 127.14 96.36">
                                         <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77.7,77.7,0,0,0,6.89,11.1,105.25,105.25,0,0,0,32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.56,65.3c-5.36,0-9.8-4.83-9.8-10.74s4.33-10.74,9.8-10.74,9.84,4.83,9.8,10.74C52.4,60.47,48,65.3,42.56,65.3Zm42,0c-5.36,0-9.8-4.83-9.8-10.74s4.33-10.74,9.8-10.74,9.84,4.83,9.8,10.74C94.4,60.47,90,65.3,84.56,65.3Z"/>
@@ -1709,7 +1735,7 @@ export default function App() {
                                 
                                 <a 
                                    href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify"
-                                   className={`font-bold py-3 px-6 rounded-lg transition-all w-full shadow-lg hover:scale-105 flex items-center justify-center gap-2 text-sm shrink-0 ${
+                                   className={`font-bold py-3 px-6 rounded-lg transition-all w-full shadow-lg hover:scale-105 flex items-center justify-center gap-2 text-sm shrink-0 mt-auto ${
                                        isVerifying ? 'opacity-50 pointer-events-none bg-[#5865F2] text-white' : 
                                        'bg-[#5865F2] hover:bg-[#4752C4] text-white'
                                    }`}
