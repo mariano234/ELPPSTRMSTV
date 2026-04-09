@@ -3,9 +3,13 @@ import { Search, Home, Film, Download, X, Info, ChevronRight, ChevronLeft, Alert
 
 // --- CONFIGURACIÓN ---
 const TMDB_API_KEY = "342815a2b6a677bbc29fd13a6e3c1c3a"; 
+const SHEET_ID = "104RB6GK9_m_nzIakTU3MJLaDJPwt9fYmfHF3ikyixFE";
 const CACHE_VERSION = "v2_multilang"; 
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; 
 const STREAM_CHANNEL = "elpintaunas"; 
+
+// --- API BACKEND (Cloudflare) ---
+const API_BASE = "/api"; 
 
 const LANGUAGE_MAP = {
   'es': 'Español', 'es-es': 'Español (España)', 'es-mx': 'Español (Latino)',
@@ -15,6 +19,7 @@ const LANGUAGE_MAP = {
   'fr': 'Francés', 'it': 'Italiano', 'de': 'Alemán', 'ja': 'Japonés', 'jp': 'Japonés', 'ko': 'Coreano', 'pt': 'Portugués'
 };
 
+// --- DICCIONARIO DE GÉNEROS ---
 const GENRE_TRANSLATIONS = {
     'Acción': { ca: 'Acció', gl: 'Acción', eu: 'Ekintza', es: 'Acción' },
     'Action': { ca: 'Acció', gl: 'Acción', eu: 'Ekintza', es: 'Acción' },
@@ -98,12 +103,15 @@ const UI_TRANSLATIONS = {
     sin_descripcion: 'Sin descripción disponible.', sinc_biblio: 'Sincronizando con tu biblioteca...',
     calidad: 'Calidad', idiomas: 'Idiomas', año: 'Año', error_fallo: 'Vaya, algo ha fallado',
     proximamente: 'Próximamente...', prep_series: 'Estamos preparando todo el catálogo de series para integrarlo en la plataforma. ¡Vuelve muy pronto!',
-    acceso_premium: 'Acceso Privado al Directo', pass_directo: 'Contraseña del Directo',
-    desc_directo: 'El directo está protegido. Verifica que tienes el rol requerido en nuestro servidor de Discord para desbloquear el reproductor.',
-    verificando: 'Verificando...', refrescar_pass: 'Refrescar Contraseña', verificar_rol: 'Verificar mi Rol en Discord',
-    clave_reproductor: 'Clave del Reproductor', intro_clave: 'La contraseña se ha detectado y se inyectará automáticamente en el reproductor.',
-    activacion_premium: 'Opciones de Servidor', stream_desbloqueado: '¡Has desbloqueado el reproductor nativo! Disfruta del directo sin restricciones.',
-    vacio: 'Vacío', sin_pass: 'Sin Contraseña', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normal (Público)'
+    acceso_premium: 'Acceso Premium', pass_directo: 'Autenticación Requerida',
+    desc_directo: 'El directo está protegido. Verifica que tienes el rol requerido en nuestro servidor de Discord para acceder.',
+    verificando: 'Verificando...', refrescar_pass: 'Refrescar Sesión', verificar_rol: 'Verificar mi Rol en Discord',
+    vacio: 'Vacío', sin_pass: 'Sin Contraseña', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normal (Público)',
+    acceso_concedido: 'Acceso VIP Concedido',
+    credenciales_inyectadas: 'Tus credenciales se han inyectado automáticamente en el reproductor. ¡Disfruta del directo!',
+    selecciona_servidor: 'Selecciona tu Servidor',
+    servidor_no_disp: 'Servidor Premium no disponible con tu rol actual.',
+    panel_servidor: 'Panel de Control'
   },
   'ca': {
     inicio: 'INICI', pelis: 'PEL·LIS', series: 'SÈRIES', directos: 'DIRECTES',
@@ -122,12 +130,15 @@ const UI_TRANSLATIONS = {
     sin_descripcion: 'Sense descripció disponible.', sinc_biblio: 'Sincronitzant amb la teva biblioteca...',
     calidad: 'Qualitat', idiomas: 'Idiomes', año: 'Any', error_fallo: 'Vaja, alguna cosa ha fallat',
     proximamente: 'Aviat...', prep_series: 'Estem preparant tot el catàleg de sèries per integrar-lo a la plataforma. Torna molt aviat!',
-    acceso_premium: 'Accés Privat al Directe', pass_directo: 'Contrasenya del Directe',
-    desc_directo: 'El directe està protegit. Verifica que tens el rol requerit al nostre servidor de Discord per desbloquejar el reproductor.',
-    verificando: 'Verificant...', refrescar_pass: 'Refrescar Contrasenya', verificar_rol: 'Verificar el meu Rol a Discord',
-    clave_reproductor: 'Clau del Reproductor', intro_clave: 'La contrasenya s\'ha detectat i s\'injectarà automàticament al reproductor.',
-    activacion_premium: 'Opcions de Servidor', stream_desbloqueado: 'Has desbloquejat el reproductor natiu! Gaudeix del directe sense restriccions.',
-    vacio: 'Buit', sin_pass: 'Sense Contrasenya', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normal (Públic)'
+    acceso_premium: 'Accés Premium', pass_directo: 'Autenticació Requerida',
+    desc_directo: 'El directe està protegit. Verifica que tens el rol requerit al nostre servidor de Discord per accedir-hi.',
+    verificando: 'Verificant...', refrescar_pass: 'Refrescar Sessió', verificar_rol: 'Verificar el meu Rol a Discord',
+    vacio: 'Buit', sin_pass: 'Sense Contrasenya', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normal (Públic)',
+    acceso_concedido: 'Accés VIP Concedit',
+    credenciales_inyectadas: 'Les teves credencials s\'han injectat automàticament al reproductor. Gaudeix del directe!',
+    selecciona_servidor: 'Selecciona el teu Servidor',
+    servidor_no_disp: 'Servidor Premium no disponible amb el teu rol actual.',
+    panel_servidor: 'Tauler de Control'
   },
   'gl': {
     inicio: 'INICIO', pelis: 'PELIS', series: 'SERIES', directos: 'DIRECTOS',
@@ -146,12 +157,15 @@ const UI_TRANSLATIONS = {
     sin_descripcion: 'Sen descrición dispoñible.', sinc_biblio: 'Sincronizando coa túa biblioteca...',
     calidad: 'Calidade', idiomas: 'Idiomas', año: 'Ano', error_fallo: 'Oes, algo fallou',
     proximamente: 'Proximamente...', prep_series: 'Estamos a preparar todo o catálogo de series para integralo na plataforma. Volve moi pronto!',
-    acceso_premium: 'Acceso Privado ao Directo', pass_directo: 'Contrasinal do Directo',
-    desc_directo: 'O directo está protexido. Verifica que tes o rol requirido no noso servidor de Discord para desbloquear o reprodutor.',
-    verificando: 'Verificando...', refrescar_pass: 'Refrescar Contrasinal', verificar_rol: 'Verificar o meu Rol en Discord',
-    clave_reproductor: 'Clave do Reprodutor', intro_clave: 'O contrasinal detectouse e inxectarase automaticamente no reprodutor.',
-    activacion_premium: 'Opcións de Servidor', stream_desbloqueado: 'Desbloqueaches o reprodutor nativo! Goza do directo sen restriccións.',
-    vacio: 'Baleiro', sin_pass: 'Sen Contrasinal', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normal (Público)'
+    acceso_premium: 'Acceso Premium', pass_directo: 'Autenticación Requirida',
+    desc_directo: 'O directo está protexido. Verifica que tes o rol requirido no noso servidor de Discord para acceder.',
+    verificando: 'Verificando...', refrescar_pass: 'Refrescar Sesión', verificar_rol: 'Verificar o meu Rol en Discord',
+    vacio: 'Baleiro', sin_pass: 'Sen Contrasinal', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normal (Público)',
+    acceso_concedido: 'Acceso VIP Concedido',
+    credenciales_inyectadas: 'As túas credenciais inxectáronse automaticamente no reprodutor. Goza do directo!',
+    selecciona_servidor: 'Selecciona o teu Servidor',
+    servidor_no_disp: 'Servidor Premium non dispoñible co teu rol actual.',
+    panel_servidor: 'Panel de Control'
   },
   'eu': {
     inicio: 'HASIERA', pelis: 'FILMAK', series: 'TELESAILAK', directos: 'ZUZENEKOAK',
@@ -170,12 +184,15 @@ const UI_TRANSLATIONS = {
     sin_descripcion: 'Ez dago deskribapenik eskuragarri.', sinc_biblio: 'Zure liburutegiarekin sinkronizatzen...',
     calidad: 'Kalitatea', idiomas: 'Hizkuntzak', año: 'Urtea', error_fallo: 'Ene, zerbaitek huts egin du',
     proximamente: 'Laster...', prep_series: 'Telesailen katalogo osoa prestatzen ari gara plataforman integratzeko. Itzuli laster!',
-    acceso_premium: 'Sarbide Pribatua Zuzenekoan', pass_directo: 'Zuzenekoaren Pasahitza',
-    desc_directo: 'Zuzenekoa babestuta dago. Egiaztatu Discord zerbitzarian beharrezko rola duzula erreproduzitzailea desblokeatzeko.',
-    verificando: 'Egiaztatzen...', refrescar_pass: 'Pasahitza Freskatu', verificar_rol: 'Nire Rola Discord-en Egiaztatu',
-    clave_reproductor: 'Erreproduzitzailearen Gakoa', intro_clave: 'Pasahitza atzeman da eta automatikoki txertatuko da erreproduzitzailean.',
-    activacion_premium: 'Zerbitzari Aukerak', stream_desbloqueado: 'Erreproduzitzaile natiboa desblokeatu duzu! Gozatu zuzenekoaz murrizketarik gabe.',
-    vacio: 'Hutsik', sin_pass: 'Pasahitzik Ez', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normala (Publikoa)'
+    acceso_premium: 'Premium Sarbidea', pass_directo: 'Autentifikazioa Beharrezkoa',
+    desc_directo: 'Zuzenekoa babestuta dago. Egiaztatu Discord zerbitzarian beharrezko rola duzula sartzeko.',
+    verificando: 'Egiaztatzen...', refrescar_pass: 'Saioa Freskatu', verificar_rol: 'Nire Rola Discord-en Egiaztatu',
+    vacio: 'Hutsik', sin_pass: 'Pasahitzik Ez', serv_patreon: 'Premium (Patreon)', serv_normal: 'Normala (Publikoa)',
+    acceso_concedido: 'VIP Sarbidea Baimenduta',
+    credenciales_inyectadas: 'Zure kredentzialak automatikoki txertatu dira erreproduzitzailean. Gozatu zuzenekoaz!',
+    selecciona_servidor: 'Hautatu zure Zerbitzaria',
+    servidor_no_disp: 'Premium Zerbitzaria ez dago erabilgarri zure uneko rolarekin.',
+    panel_servidor: 'Kontrol Panela'
   }
 };
 
@@ -194,21 +211,25 @@ const extractIdentifier = (sid) => {
 };
 
 // --- COMPONENTE REPRODUCTOR NATIVO HLS ---
+// EXACTAMENTE EL DE APP.JSX QUE FUNCIONA CON /API/ANGELTHUMP
 const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t }) => {
-    const videoRef = useRef(null);
+    const containerRef = useRef(null);
+    const playerInstanceRef = useRef(null);
+    const hlsInstanceRef = useRef(null);
+    
     const [error, setError] = useState(null);
     const [status, setStatus] = useState('Autenticando...');
 
     useEffect(() => {
-        let hls;
+        let isMounted = true;
 
         const initPlayer = async () => {
             setError(null);
-            setStatus('Autenticando con Angelthump...');
+            setStatus('Autenticando...');
             try {
                 const cleanSid = streamSid ? streamSid.replace('angelthump.sid=', '') : '';
                 const cleanPass = streamPassword ? streamPassword.trim() : '';
-                const isValidPass = cleanPass && cleanPass !== t.sin_pass && !cleanPass.includes('••••') && !cleanPass.includes('❌');
+                const isValidPass = cleanPass && cleanPass !== t.sin_pass && !cleanPass.includes('••••') && !cleanPass.includes('❌') && !cleanPass.includes('Verificando');
                 const identifier = extractIdentifier(cleanSid);
 
                 const payload = {
@@ -223,7 +244,7 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                     payload.password = cleanPass;
                 }
 
-                const res = await fetch(`/api/angelthump`, {
+                const res = await fetch(`${API_BASE}/angelthump`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -232,62 +253,123 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                 let data = {};
                 try { data = await res.json(); } catch(e) {}
                 
-                if (!res.ok) {
-                    throw new Error(data.error || "Fallo al contactar con el proxy");
-                }
-                
-                if (!data.token) {
-                    throw new Error("Angelthump no devolvió ningún token válido.");
-                }
+                if (!res.ok) throw new Error(data.error || "Error al verificar las credenciales");
+                if (!data.token) throw new Error("Angelthump no devolvió ningún token válido.");
 
                 const rawM3u8 = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
-                let m3u8Url = `/api/angelthump?url=${encodeURIComponent(rawM3u8)}`;
+                
+                let m3u8Url = `${API_BASE}/angelthump?url=${encodeURIComponent(rawM3u8)}`;
                 if (usePatreon && identifier) {
                     m3u8Url += `&identifier=${encodeURIComponent(identifier)}&sid=${encodeURIComponent(cleanSid)}`;
                 }
 
-                if (!window.Hls) {
-                    await new Promise((resolve, reject) => {
-                        const script = document.createElement('script');
-                        script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1';
-                        script.onload = resolve;
-                        script.onerror = reject;
-                        document.head.appendChild(script);
-                    });
+                if (!isMounted) return;
+
+                if (!document.getElementById('plyr-css')) {
+                    const link = document.createElement('link');
+                    link.id = 'plyr-css';
+                    link.rel = 'stylesheet';
+                    link.href = 'https://cdn.plyr.io/3.7.8/plyr.css';
+                    document.head.appendChild(link);
+                }
+                
+                if (!document.getElementById('plyr-custom-style')) {
+                    const style = document.createElement('style');
+                    style.id = 'plyr-custom-style';
+                    style.innerHTML = `
+                        :root { --plyr-color-main: #e5a00d; }
+                        .plyr { width: 100% !important; height: 100% !important; display: flex; flex-direction: column; justify-content: center; }
+                        .plyr__video-wrapper { width: 100% !important; height: 100% !important; display: flex; align-items: center; justify-content: center; background: black; }
+                        .plyr video { width: 100% !important; height: 100% !important; object-fit: contain !important; }
+                    `;
+                    document.head.appendChild(style);
                 }
 
+                const loadScript = (src, globalVar) => new Promise((resolve) => {
+                    if (globalVar && window[globalVar]) return resolve();
+                    const script = document.createElement('script');
+                    script.src = src;
+                    script.onload = resolve;
+                    document.head.appendChild(script);
+                });
+
+                await new Promise((resolve) => {
+                    if (window.chrome && window.chrome.cast && window.chrome.cast.isAvailable) {
+                        return resolve();
+                    }
+                    window.__onGCastApiAvailable = function(isAvailable) {
+                        if (isAvailable) resolve();
+                    };
+                    if (!document.getElementById('cast-sdk')) {
+                        const script = document.createElement('script');
+                        script.id = 'cast-sdk';
+                        script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
+                        document.head.appendChild(script);
+                    }
+                    setTimeout(resolve, 1500); 
+                });
+
+                await Promise.all([
+                    loadScript('https://cdn.jsdelivr.net/npm/hls.js@1', 'Hls'),
+                    loadScript('https://cdn.plyr.io/3.7.8/plyr.polyfilled.js', 'Plyr')
+                ]);
+
+                if (!isMounted) return;
+
+                if (hlsInstanceRef.current) hlsInstanceRef.current.destroy();
+                if (playerInstanceRef.current) playerInstanceRef.current.destroy();
+
+                if (containerRef.current) {
+                    containerRef.current.innerHTML = '<video id="native-video-player" playsinline style="width: 100%; height: 100%; background: black;"></video>';
+                }
+                const videoEl = document.getElementById('native-video-player');
+                if (!videoEl) throw new Error("No se pudo inyectar el elemento de vídeo de forma segura.");
+
+                const plyrOptions = {
+                    controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'settings', 'pip', 'airplay', 'cast', 'fullscreen'],
+                    settings: ['quality'],
+                    autoplay: true,
+                    cast: { enabled: true } 
+                };
+
                 if (window.Hls.isSupported()) {
-                    hls = new window.Hls();
+                    const hls = new window.Hls();
+                    hlsInstanceRef.current = hls;
                     hls.loadSource(m3u8Url);
-                    hls.attachMedia(videoRef.current);
-                    hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
-                        setStatus('');
-                        videoRef.current.play().catch(() => console.log("Autoplay bloqueado por el navegador"));
+                    hls.attachMedia(videoEl);
+                    
+                    hls.on(window.Hls.Events.MANIFEST_PARSED, function () {
+                        if (!isMounted) return;
+                        playerInstanceRef.current = new window.Plyr(videoEl, plyrOptions);
+                        setStatus(''); 
+                        videoEl.play().catch(e => console.log("Clic requerido para auto-play con audio."));
                     });
+
                     hls.on(window.Hls.Events.ERROR, (event, data) => {
                         if (data.fatal) {
-                            switch (data.type) {
-                                case window.Hls.ErrorTypes.NETWORK_ERROR:
-                                    hls.startLoad();
-                                    break;
-                                case window.Hls.ErrorTypes.MEDIA_ERROR:
-                                    hls.recoverMediaError();
-                                    break;
-                                default:
-                                    setError('Error de red al cargar el vídeo. Refresca la página.');
-                                    setStatus('');
-                                    break;
+                            if (!isMounted) return;
+                            if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
+                                hls.startLoad();
+                            } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
+                                hls.recoverMediaError();
+                            } else {
+                                setError('Error crítico de red. Refresca la página.');
+                                setStatus('');
                             }
                         }
                     });
-                } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
-                    videoRef.current.src = m3u8Url;
-                    videoRef.current.addEventListener('loadedmetadata', () => {
+
+                } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+                    videoEl.src = m3u8Url;
+                    videoEl.addEventListener('loadedmetadata', function () {
+                        if (!isMounted) return;
+                        playerInstanceRef.current = new window.Plyr(videoEl, plyrOptions);
                         setStatus('');
-                        videoRef.current.play().catch(() => {});
+                        videoEl.play().catch(() => {});
                     });
                 }
             } catch (err) {
+                if (!isMounted) return;
                 setError(err.message);
                 setStatus('');
             }
@@ -296,14 +378,16 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
         initPlayer();
 
         return () => {
-            if (hls) hls.destroy();
+            isMounted = false;
+            if (hlsInstanceRef.current) hlsInstanceRef.current.destroy();
+            if (playerInstanceRef.current) playerInstanceRef.current.destroy();
         };
     }, [streamSid, streamPassword, channel, usePatreon]);
 
     return (
-        <div className="w-full h-full bg-black relative flex items-center justify-center rounded-2xl overflow-hidden">
+        <div className="w-full h-full bg-black relative flex items-center justify-center">
             {status && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-10 flex-col gap-4">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-20 flex-col gap-4">
                     <div className="w-10 h-10 border-4 border-[#e5a00d] border-t-transparent rounded-full animate-spin"></div>
                     <span className="text-[#e5a00d] font-bold text-sm tracking-widest uppercase text-center px-4">{status}</span>
                 </div>
@@ -315,12 +399,30 @@ const NativeStreamPlayer = ({ streamSid, streamPassword, channel, usePatreon, t 
                     <span className="text-gray-400 text-sm max-w-md">{error}</span>
                 </div>
             )}
-            <video ref={videoRef} className="w-full h-full outline-none" controls autoPlay playsInline />
+            <div ref={containerRef} className="w-full h-full absolute inset-0 z-10 flex flex-col justify-center"></div>
         </div>
     );
 };
 
 // --- UTILIDADES ---
+const parseCSV = (text) => {
+  const rows = [];
+  let row = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (char === '"' && text[i + 1] === '"') { current += '"'; i++; }
+    else if (char === '"') { inQuotes = !inQuotes; }
+    else if (char === ',' && !inQuotes) { row.push(current); current = ''; }
+    else if (char === '\n' && !inQuotes) { row.push(current); rows.push(row); row = []; current = ''; }
+    else if (char !== '\r') { current += char; }
+  }
+  if (current !== '' || text[text.length - 1] === ',') row.push(current);
+  if (row.length > 0) rows.push(row);
+  return rows;
+};
+
 const formatVideoQuality = (raw) => {
   if (!raw) return 'SD';
   const s = raw.toLowerCase();
@@ -589,10 +691,9 @@ export default function App() {
   const [viewMode, setViewMode] = useState('grid'); 
 
   // ESTADOS DE REPRODUCTOR
-  const [streamPassword, setStreamPassword] = useState("");
+  const [streamPassword, setStreamPassword] = useState("••••••••••••");
   const [streamSid, setStreamSid] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [copiedPass, setCopiedPass] = useState(false);
   const [usePatreon, setUsePatreon] = useState(false); 
   
   const [visibleCount, setVisibleCount] = useState(100);
@@ -674,7 +775,7 @@ export default function App() {
     }
   }, [activeTab, selectedItem, searchQuery, selectedCategory]);
 
-  // --- MOTOR DE AUTENTICACIÓN ---
+  // --- MOTOR DE AUTENTICACIÓN MEJORADO ---
   useEffect(() => {
     const savedPassword = sessionStorage.getItem('stream_password');
     const savedSid = sessionStorage.getItem('stream_sid');
@@ -706,7 +807,8 @@ export default function App() {
         setIsVerifying(true);
         setStreamPassword(t.verificando);
         
-        fetch(`/api/verificar?code=${code}`)
+        // Llamada a la API de tu backend para verificar
+        fetch(`${API_BASE}/verificar?code=${code}`)
             .then(async res => {
                 if (!res.ok) {
                     const text = await res.text();
@@ -790,28 +892,12 @@ export default function App() {
               sessionStorage.removeItem('stream_password');
               sessionStorage.removeItem('stream_sid');
               sessionStorage.removeItem('stream_auth_time');
-              setStreamPassword("");
+              setStreamPassword("••••••••••••");
               setStreamSid(null);
               setUsePatreon(false);
           }
       }
   }, [activeTab, isVerifying]);
-
-  const handleCopyPass = () => {
-      if (!streamPassword || streamPassword.includes('❌') || streamPassword.includes('••••') || streamPassword.includes('Verificando') || streamPassword.includes('Verificant') || streamPassword.includes('Egiaztatzen')) return;
-      const textArea = document.createElement("textarea");
-      textArea.value = streamPassword;
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-          document.execCommand('copy');
-          setCopiedPass(true);
-          setTimeout(() => setCopiedPass(false), 2000); 
-      } catch (err) { 
-          console.error('Error al copiar contraseña', err); 
-      }
-      document.body.removeChild(textArea);
-  };
 
   const translateLangs = (str, targetLang) => {
     if (!str || str === 'N/A') return 'N/A';
@@ -822,7 +908,6 @@ export default function App() {
     }).join(', ');
   };
 
-  // --- PETICIÓN DIRECTA A TMDB ---
   const fetchTMDB = async (title, year, langToFetch) => {
     try {
       let cleanTitle = title.replace(/\[.*?\]/g, ' ').replace(/\(.*?\)/g, ' ').replace(/[\[\]\(\)]/g, '').replace(/!/g, '').replace(/\s1$/, '').trim();
@@ -901,10 +986,29 @@ export default function App() {
           } catch(e) {}
       }
 
-      const libRes = await fetch(`/api/library${forceRefresh ? '?refresh=true' : ''}`);
-      if (!libRes.ok) throw new Error("Fallo al conectar con la base de datos.");
-      const rawRows = await libRes.json();
+      // Se mantiene el fetch directo a tu Google Sheets para ser 100% idénticos a App(old).jsx visualmente
+      const response = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`);
+      const csvText = await response.text();
+      const parsedData = parseCSV(csvText);
       
+      const headerRowIdx = parsedData.findIndex(row => row.some(c => typeof c === 'string' && (c.toLowerCase().includes('título') || c.toLowerCase().includes('title'))));
+      const validHeaderIdx = headerRowIdx !== -1 ? headerRowIdx : 0;
+      
+      const headers = parsedData[validHeaderIdx].map(h => (h || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+      const getIdx = (keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
+      
+      const idxTitle = getIdx(['titulo', 'title']);
+      const idxYear = getIdx(['ano', 'year', 'año']);
+      const idxLang = getIdx(['idioma', 'lenguaje']);
+      const idxQual = getIdx(['calidad']);
+      const idxGen  = getIdx(['genero', 'género']);
+      
+      let idxLink = getIdx(['lnkf']);
+      if (idxLink === -1) {
+          idxLink = getIdx(['link final', 'url final', 'descarga']);
+      }
+
+      const rawRows = parsedData.slice(validHeaderIdx + 1).filter(r => r[idxTitle]);
       const chunkSize = 25; 
       const enriched = [];
       const translatedNoDesc = UI_TRANSLATIONS[currentLang].sin_descripcion;
@@ -912,15 +1016,25 @@ export default function App() {
       for (let i = 0; i < rawRows.length; i += chunkSize) {
         const chunk = rawRows.slice(i, i + chunkSize);
         const chunkEnriched = await Promise.all(chunk.map(async (row, idx) => {
-          const title = row.title;
-          const year = row.year || '?';
+          const title = row[idxTitle];
+          const year = row[idxYear] || '?';
           const cacheKey = `${title.toLowerCase()}_${year}`;
           
-          let finalLink = row.link || '#';
+          let rawLink = '';
+          if (idxLink !== -1 && row[idxLink] && typeof row[idxLink] === 'string' && row[idxLink].trim().includes('http')) {
+              rawLink = row[idxLink]; 
+          } else {
+              const cellHttp = [...row].reverse().find(c => c && typeof c === 'string' && (c.trim().includes('http') || c.trim().includes('www.')));
+              if (cellHttp) rawLink = cellHttp;
+          }
+          
+          let finalLink = rawLink.trim();
+          if (!finalLink || finalLink.toLowerCase() === 'link' || finalLink.toLowerCase() === 'lnkf') finalLink = '#';
+          else if (finalLink !== '#' && !finalLink.startsWith('http')) finalLink = 'https://' + finalLink;
 
-          const newQuality = formatVideoQuality(row.quality);
-          const newLang = row.language ? translateLangs(row.language, currentLang) : 'N/A';
-          const fallbackGenre = row.rawGenre ? [GENRE_TRANSLATIONS[row.rawGenre]?.[currentLang] || row.rawGenre] : [GENRE_TRANSLATIONS['Otros']?.[currentLang] || "Otros"];
+          const newQuality = formatVideoQuality(idxQual !== -1 ? row[idxQual] : '');
+          const newLang = idxLang !== -1 ? translateLangs(row[idxLang], currentLang) : 'N/A';
+          const newGenresCsv = (idxGen !== -1 && row[idxGen]) ? [GENRE_TRANSLATIONS[row[idxGen]]?.[currentLang] || row[idxGen]] : [GENRE_TRANSLATIONS['Otros']?.[currentLang] || "Otros"];
 
           if (existingItemsMap.has(cacheKey)) {
               const cachedItem = existingItemsMap.get(cacheKey);
@@ -947,7 +1061,7 @@ export default function App() {
             videoQuality: newQuality,
             language: newLang,
             link: finalLink,
-            genres: tmdb?.genres?.length ? tmdb.genres : fallbackGenre,
+            genres: tmdb?.genres?.length ? tmdb.genres : newGenresCsv,
             collection: tmdb?.collection || null,
             rating: tmdb?.rating || 'N/A'
           };
@@ -1394,110 +1508,119 @@ export default function App() {
       ) : (
         <>
           {activeTab === 'directos' && (
-             <div className="pt-24 md:pt-[5.5rem] px-4 md:px-12 max-w-7xl mx-auto flex flex-col gap-6 w-full animate-in fade-in duration-500">
-                 
-                 <div className="flex items-center justify-between mb-2">
-                     <div className="flex items-center gap-3">
-                         <Radio size={28} className="text-[#e5a00d]" />
-                         <h2 className="text-2xl md:text-3xl font-black text-white">Directo <span className="text-[#e5a00d]">VIP</span></h2>
-                     </div>
-                 </div>
+            <div className="pt-24 md:pt-[5.5rem] px-4 md:px-12 flex flex-col lg:flex-row gap-4 md:gap-6 h-[calc(100vh-1rem)] pb-4 md:pb-6 lg:pb-8 animate-in fade-in duration-500 w-full">
+                
+                {/* ZONA IZQUIERDA: Candado o Reproductor */}
+                <div className="flex-1 bg-black rounded-xl overflow-hidden border border-white/10 relative shadow-2xl min-h-[40vh] lg:min-h-0 lg:h-full flex items-center justify-center group/player">
+                    <div className="absolute inset-0 w-full h-full">
+                        {isLogged ? (
+                            <NativeStreamPlayer streamSid={streamSid} streamPassword={streamPassword} channel={STREAM_CHANNEL} usePatreon={usePatreon} t={t} />
+                        ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-900/80 backdrop-blur-md relative z-10">
+                                <div className="bg-[#5865F2]/20 p-6 rounded-full mb-6 border border-[#5865F2]/30 shadow-[0_0_30px_rgba(88,101,242,0.3)]">
+                                    <Lock size={64} className="text-[#5865F2]" />
+                                </div>
+                                <h2 className="text-2xl font-bold text-white mb-2">{t.acceso_premium}</h2>
+                                <p className="text-gray-400 text-center max-w-sm px-4">{t.desc_directo}</p>
+                            </div>
+                        )}
+                    </div>
+                    
+                    {isLogged && (
+                        <div className="absolute top-4 left-4 z-30 pointer-events-none opacity-0 group-hover/player:opacity-100 transition-opacity">
+                            <span className="bg-black/60 backdrop-blur-md border border-white/10 text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-2 uppercase tracking-widest shadow-lg">
+                                <Server size={12} className={usePatreon ? 'text-[#e5a00d]' : 'text-blue-400'} /> 
+                                {usePatreon ? t.serv_patreon : t.serv_normal}
+                            </span>
+                        </div>
+                    )}
+                </div>
+                
+                {/* ZONA DERECHA: Ventana de Logueo o Control de Servidores */}
+                <div className="w-full lg:w-[350px] xl:w-[400px] bg-[#1a1a1c] rounded-xl overflow-hidden border border-white/5 flex flex-col shadow-2xl shrink-0 h-auto lg:h-full overflow-y-auto">
+                    <div className="bg-[#141414] p-3 border-b border-white/5 flex justify-center items-center shrink-0">
+                       <span className="font-bold text-white text-sm flex items-center gap-2">
+                           {isLogged ? <Server size={16} className="text-[#e5a00d]" /> : <Lock size={16} className="text-[#5865F2]" />}
+                           {isLogged ? t.panel_servidor : t.acceso_premium}
+                       </span>
+                    </div>
+                    
+                    <div className="flex flex-col flex-1 p-4 md:p-6 justify-start items-center text-center">
+                        {isLogged ? (
+                            <div className="flex flex-col items-center w-full h-full animate-in fade-in zoom-in duration-300">
+                                <div className="bg-green-500/10 p-4 rounded-full mb-4 border border-green-500/30 shadow-[0_0_30px_rgba(34,197,94,0.15)] shrink-0">
+                                    <CheckCircle size={40} className="text-green-500" />
+                                </div>
+                                <h3 className="text-xl md:text-2xl font-black text-white mb-2 shrink-0">{t.acceso_concedido}</h3>
+                                <p className="text-gray-400 text-[11px] md:text-xs mb-8 leading-relaxed shrink-0">
+                                    {t.credenciales_inyectadas}
+                                </p>
 
-                 <div className="w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 relative group/player">
-                     {isLogged ? (
-                         <NativeStreamPlayer streamSid={streamSid} streamPassword={streamPassword} channel={STREAM_CHANNEL} usePatreon={usePatreon} t={t} />
-                     ) : (
-                         <iframe title="Player" allow="autoplay; fullscreen" src={`https://player.angelthump.com/?channel=${STREAM_CHANNEL}`} seamless="seamless" style={{ border: 0, margin: 0, overflow: 'hidden', height: '100%', width: '100%' }}></iframe>
-                     )}
-                     {isLogged && (
-                          <div className="absolute top-4 left-4 z-30 pointer-events-none opacity-0 group-hover/player:opacity-100 transition-opacity">
-                              <span className="bg-black/60 backdrop-blur-md border border-white/10 text-white text-xs font-bold px-4 py-2 rounded-full flex items-center gap-2 uppercase tracking-widest shadow-lg">
-                                  <Server size={14} className={usePatreon ? 'text-[#e5a00d]' : 'text-blue-400'} /> 
-                                  {usePatreon ? t.serv_patreon : t.serv_normal}
-                              </span>
-                          </div>
-                      )}
-                 </div>
+                                <div className="w-full bg-black/40 border border-white/10 rounded-xl p-4 md:p-5 mb-6 shadow-inner shrink-0">
+                                    <span className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-widest font-bold flex items-center justify-center gap-2 mb-4">
+                                        <Server size={14} className="text-[#e5a00d]" /> {t.selecciona_servidor}
+                                    </span>
+                                    
+                                    <div className="flex bg-[#141414] rounded-lg p-1.5 border border-white/5 relative">
+                                        <button 
+                                            onClick={() => setUsePatreon(true)}
+                                            disabled={!streamSid} 
+                                            className={`flex-1 py-2.5 text-xs rounded-md transition-all duration-300 z-10 ${usePatreon ? 'bg-[#e5a00d] text-black font-black shadow-[0_2px_10px_rgba(229,160,13,0.3)]' : 'text-gray-400 hover:text-white font-semibold'} ${!streamSid ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                        >
+                                            {t.serv_patreon}
+                                        </button>
+                                        <button 
+                                            onClick={() => setUsePatreon(false)}
+                                            className={`flex-1 py-2.5 text-xs rounded-md transition-all duration-300 z-10 ${!usePatreon ? 'bg-neutral-700 text-white font-black shadow-md border border-white/10' : 'text-gray-400 hover:text-white font-semibold'}`}
+                                        >
+                                            {t.serv_normal}
+                                        </button>
+                                    </div>
+                                    
+                                    {!streamSid && (
+                                        <p className="text-[9px] text-red-400/80 mt-3 font-medium flex items-center justify-center gap-1">
+                                            <AlertTriangle size={10} /> {t.servidor_no_disp}
+                                        </p>
+                                    )}
+                                </div>
 
-                 {/* TARJETA DISCORD (DISEÑO HORIZONTAL LIMPIO) */}
-                 <div className="w-full bg-[#1a1a1c] rounded-2xl border border-white/5 p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 md:gap-10 shadow-xl">
-                     <div className="flex-1 text-center md:text-left">
-                         <h3 className="text-xl md:text-2xl font-black text-white mb-2 flex items-center justify-center md:justify-start gap-2">
-                             <Lock size={20} className="text-[#e5a00d]"/> {t.acceso_premium}
-                         </h3>
-                         <p className="text-gray-400 text-sm md:text-base leading-relaxed">
-                             {t.desc_directo}
-                         </p>
-                     </div>
-                     
-                     <div className="w-full md:w-auto flex flex-col items-center gap-4 shrink-0">
-                         {/* ENLACE EXACTO SOLICITADO */}
-                         <a 
-                             href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify"
-                             className={`font-bold py-3 px-8 rounded-xl transition-all w-full md:w-auto shadow-lg hover:scale-105 flex items-center justify-center gap-3 text-sm md:text-base ${
-                                 isVerifying ? 'opacity-50 pointer-events-none bg-[#5865F2] text-white' : 
-                                 isLogged ? 'bg-neutral-800 hover:bg-neutral-700 text-white border border-white/10' : 
-                                 'bg-[#5865F2] hover:bg-[#4752C4] text-white'
-                             }`}
-                          >
-                              {isVerifying ? (
-                                  <><RefreshCw className="animate-spin" size={20} /> {t.verificando}</>
-                              ) : isLogged ? (
-                                  <><RefreshCw size={20} /> {t.refrescar_pass}</>
-                              ) : (
-                                  <>
-                                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 127.14 96.36">
-                                          <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77.7,77.7,0,0,0,6.89,11.1,105.25,105.25,0,0,0,32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.56,65.3c-5.36,0-9.8-4.83-9.8-10.74s4.33-10.74,9.8-10.74,9.84,4.83,9.8,10.74C52.4,60.47,48,65.3,42.56,65.3Zm42,0c-5.36,0-9.8-4.83-9.8-10.74s4.33-10.74,9.8-10.74,9.84,4.83,9.8,10.74C94.4,60.47,90,65.3,84.56,65.3Z"/>
-                                      </svg>
-                                      {t.verificar_rol}
-                                  </>
-                              )}
-                          </a>
-                          
-                          {/* PASS Y CLICK PARA COPIAR EN ESTILO LIMPIO */}
-                          {isLogged && (
-                              <div 
-                                  className="bg-black/50 px-4 py-2.5 rounded-lg border border-white/10 w-full flex items-center justify-between cursor-pointer hover:border-[#e5a00d]/50 group transition-all"
-                                  onClick={handleCopyPass}
-                                  title="Copiar contraseña"
-                              >
-                                  <span className="text-gray-400 text-xs uppercase font-bold tracking-wider">Pass:</span>
-                                  <span className={`font-mono font-bold ml-3 ${copiedPass ? 'text-green-400' : 'text-[#e5a00d]'}`}>
-                                      {copiedPass ? "¡COPIADO!" : streamPassword}
-                                  </span>
-                              </div>
-                          )}
-                     </div>
-                 </div>
-
-                 {/* OPCIONES DE SERVIDOR SI ESTÁ LOGUEADO */}
-                 {isLogged && (
-                      <div className="w-full bg-[#1a1a1c] rounded-2xl border border-[#e5a00d]/20 p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl mb-10">
-                          <div className="flex items-center gap-3">
-                              <CheckCircle className="text-[#e5a00d]" size={24} />
-                              <div>
-                                  <h4 className="text-white font-bold">{t.stream_desbloqueado.split('!')[0]}!</h4>
-                                  <p className="text-gray-400 text-sm">Cambia de servidor en tiempo real si experimentas cortes.</p>
-                              </div>
-                          </div>
-                          <div className="flex bg-black p-1 rounded-xl border border-white/10 shrink-0">
-                              <button 
-                                  onClick={() => setUsePatreon(true)}
-                                  disabled={!streamSid}
-                                  className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all ${usePatreon ? 'bg-[#e5a00d] text-black shadow-md' : 'text-gray-400 hover:text-white'} ${!streamSid ? 'opacity-30 cursor-not-allowed' : ''}`}
-                              >
-                                  {t.serv_patreon}
-                              </button>
-                              <button 
-                                  onClick={() => setUsePatreon(false)}
-                                  className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all ${!usePatreon ? 'bg-white/10 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
-                              >
-                                  {t.serv_normal}
-                              </button>
-                          </div>
-                      </div>
-                 )}
-              </div>
+                                <div className="mt-auto w-full pt-4">
+                                    <a 
+                                        href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify"
+                                        className="w-full font-bold py-3 px-6 rounded-lg transition-all border border-white/10 bg-[#202225] hover:bg-[#2f3136] text-gray-300 text-xs flex items-center justify-center gap-2 group"
+                                    >
+                                        <RefreshCw size={14} className="group-hover:rotate-180 transition-transform duration-500" /> {t.refrescar_pass}
+                                    </a>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center w-full h-full animate-in fade-in duration-300">
+                                <div className="bg-[#5865F2]/10 p-4 rounded-full mb-4 border border-[#5865F2]/30 shrink-0">
+                                    <svg className="w-10 h-10 text-[#5865F2]" fill="currentColor" viewBox="0 0 127.14 96.36">
+                                        <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77.7,77.7,0,0,0,6.89,11.1,105.25,105.25,0,0,0,32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.56,65.3c-5.36,0-9.8-4.83-9.8-10.74s4.33-10.74,9.8-10.74,9.84,4.83,9.8,10.74C52.4,60.47,48,65.3,42.56,65.3Zm42,0c-5.36,0-9.8-4.83-9.8-10.74s4.33-10.74,9.8-10.74,9.84,4.83,9.8,10.74C94.4,60.47,90,65.3,84.56,65.3Z"/>
+                                    </svg>
+                                </div>
+                                <h3 className="text-xl md:text-2xl font-black text-white mb-2 shrink-0">{t.pass_directo}</h3>
+                                <p className="text-gray-400 text-[11px] md:text-xs mb-8 leading-relaxed shrink-0 max-w-[250px]">
+                                    {t.desc_directo}
+                                </p>
+                                
+                                <a 
+                                   href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify"
+                                   className={`font-bold py-3 px-6 rounded-lg transition-all w-full shadow-lg hover:scale-105 flex items-center justify-center gap-2 text-sm shrink-0 ${
+                                       isVerifying ? 'opacity-50 pointer-events-none bg-[#5865F2] text-white' : 
+                                       'bg-[#5865F2] hover:bg-[#4752C4] text-white'
+                                   }`}
+                                >
+                                    {isVerifying ? (
+                                        <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> {t.verificando}</>
+                                    ) : t.verificar_rol}
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
           )}
 
           {activeTab === 'series' && (
