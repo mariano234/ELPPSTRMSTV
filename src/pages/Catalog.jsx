@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Film, Info, Grid, List as ListIcon, Filter, Monitor, Globe, Calendar, ArrowDownWideNarrow, X, AlertTriangle, Layers, Star, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { UI_TRANSLATIONS, SHEET_ID, CACHE_VERSION, CACHE_TTL } from '../config';
-import { parseCSV, formatVideoQuality, extractIdentifier, translateLangs, fetchTMDB, shuffleArray } from '../utils';
+import { parseCSV, formatVideoQuality, translateLangs, fetchTMDB, shuffleArray } from '../utils';
 import MovieRow from '../components/MovieRow';
 import LazyImage from '../components/LazyImage';
 
 export default function Catalog({ appLang, category }) {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const t = UI_TRANSLATIONS[appLang] || UI_TRANSLATIONS['es'];
 
@@ -39,7 +39,6 @@ export default function Catalog({ appLang, category }) {
       try {
         const cacheKeyName = `plex_library_full_cache_${appLang}`;
         const cachedRaw = localStorage.getItem(cacheKeyName);
-        let existingItemsMap = new Map();
 
         if (cachedRaw) {
             const parsed = JSON.parse(cachedRaw);
@@ -206,7 +205,6 @@ export default function Catalog({ appLang, category }) {
       )
     : (selectedCategory ? selectedCategory.items : []);
 
-  // Extraemos todos los filtros disponibles
   const availableGenres = useMemo(() => Array.from(new Set(rawDisplayItems.flatMap(i => i.genres || []))).sort(), [rawDisplayItems]);
   const availableQualities = useMemo(() => Array.from(new Set(rawDisplayItems.map(i => i.videoQuality).filter(q => q && q !== 'N/A'))).sort((a, b) => b.localeCompare(a)), [rawDisplayItems]);
   const availableLanguages = useMemo(() => Array.from(new Set(rawDisplayItems.flatMap(i => i.language ? i.language.split(',').map(l => l.trim()) : []).filter(l => l !== 'N/A'))).sort(), [rawDisplayItems]);
@@ -227,12 +225,16 @@ export default function Catalog({ appLang, category }) {
     return result;
   }, [rawDisplayItems, filterGenres, filterQualities, filterLanguages, filterYears, sortBy]);
 
+  const sagaItems = useMemo(() => {
+     if (!selectedItem || selectedItem.isSaga || !selectedItem.collection) return [];
+     return items.filter(i => !i.isSaga && i.collection?.id === selectedItem.collection.id && i.id !== selectedItem.id);
+  }, [selectedItem, items]);
+
   const renderFiltersAndSorting = () => {
     const hasActiveFilters = filterGenres.length > 0 || filterQualities.length > 0 || filterLanguages.length > 0 || filterYears.length > 0;
     return (
       <div className="flex flex-col gap-3 md:gap-4 w-full lg:w-auto mt-4 md:mt-0">
         <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full">
-            {/* Selectores de Filtro... */}
             <div className="relative flex-1 min-w-[130px] lg:flex-none">
                 <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
                 <select value="default" onChange={e => { if (e.target.value !== 'default' && !filterGenres.includes(e.target.value)) setFilterGenres([...filterGenres, e.target.value]); }} className="appearance-none bg-neutral-900 border border-white/20 text-xs md:text-sm rounded-lg pl-8 pr-3 py-2 text-white outline-none focus:border-[#e5a00d] w-full truncate">
@@ -269,11 +271,21 @@ export default function Catalog({ appLang, category }) {
           {arrayToRender.map(item => (
             <div key={item.id} className="group cursor-pointer flex gap-4 md:gap-6 bg-neutral-900/30 hover:bg-neutral-800/60 border border-white/5 rounded-xl p-3 md:p-4 transition-all" onClick={() => openModal(item)}>
                <div className="w-20 md:w-28 shrink-0 aspect-[2/3] rounded-lg overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
-                 <LazyImage src={item.image} alt={item.displayTitle} className="w-full h-full object-cover" />
+                 <LazyImage src={item.image} alt={item.displayTitle || item.title} className="w-full h-full object-cover" />
                </div>
                <div className="flex flex-col justify-center flex-1">
-                 <h4 className="font-bold text-sm md:text-xl text-white mb-1 group-hover:text-[#e5a00d] transition-colors">{item.displayTitle}</h4>
-                 <p className="text-xs md:text-sm text-gray-500 line-clamp-2">{item.description}</p>
+                 <h4 className="font-bold text-sm md:text-xl text-white mb-1 md:mb-2 group-hover:text-[#e5a00d] transition-colors">{item.displayTitle || item.title}</h4>
+                 {!item.isSaga && (
+                   <div className="flex flex-wrap items-center gap-2 md:gap-3 text-xs md:text-sm text-gray-400 mb-2 md:mb-3">
+                     <span className="font-bold text-white">{item.year}</span>
+                     {item.rating && item.rating !== 'N/A' && <span className="flex items-center gap-1 text-[#e5a00d]"><Star size={12} fill="currentColor"/> {item.rating}</span>}
+                     {item.videoQuality && <span className="border border-gray-600 px-1.5 py-0.5 rounded text-[10px] md:text-xs">{item.videoQuality}</span>}
+                     <span className="hidden sm:inline">•</span>
+                     <span className="hidden sm:inline">{item.genres?.join(', ')}</span>
+                   </div>
+                 )}
+                 {item.isSaga && <div className="text-xs md:text-sm text-[#e5a00d] font-bold tracking-widest mb-2 uppercase">{t.coleccion_oficial}</div>}
+                 <p className="text-xs md:text-sm text-gray-500 line-clamp-2 md:line-clamp-3">{item.description}</p>
                </div>
             </div>
           ))}
@@ -286,9 +298,9 @@ export default function Catalog({ appLang, category }) {
         {arrayToRender.map(item => (
           <div key={item.id} className="group cursor-pointer flex flex-col" onClick={() => openModal(item)}>
             <div className="aspect-[2/3] rounded-lg overflow-hidden border border-white/5 bg-neutral-900 group-hover:scale-105 transition-transform duration-300 shadow-xl">
-              <LazyImage src={item.image} alt={item.displayTitle} className="w-full h-full object-cover" />
+              <LazyImage src={item.image} alt={item.displayTitle || item.title} className="w-full h-full object-cover" />
             </div>
-            <h4 className="mt-2 md:mt-3 font-bold text-[11px] md:text-sm line-clamp-2 pb-1 pr-1 group-hover:text-[#e5a00d] transition-colors">{item.displayTitle}</h4>
+            <h4 className="mt-2 md:mt-3 font-bold text-[11px] md:text-sm line-clamp-2 pb-1 pr-1 group-hover:text-[#e5a00d] transition-colors">{item.displayTitle || item.title}</h4>
           </div>
         ))}
       </div>
@@ -316,7 +328,8 @@ export default function Catalog({ appLang, category }) {
                 <div className="flex items-center gap-2 text-[#e5a00d] font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2 md:mb-4">
                 <Film size={14} /> {t.recomendado_para_ti}
                 </div>
-                <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-2 md:mb-4 leading-tight drop-shadow-2xl">{heroItem.displayTitle}</h1>
+                <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-2 md:mb-4 leading-tight drop-shadow-2xl">{heroItem.displayTitle || heroItem.title}</h1>
+                <p className="text-gray-300 text-xs sm:text-sm md:text-base lg:text-lg line-clamp-2 md:line-clamp-3 font-light mb-4 md:mb-6 max-w-xl leading-relaxed">{heroItem.description}</p>
                 <button onClick={() => openModal(heroItem)} className="flex items-center justify-center gap-2 md:gap-3 bg-[#e5a00d] hover:bg-[#c9890a] text-black font-extrabold py-2 md:py-3 px-6 md:px-8 rounded-full transition-all hover:scale-105 shadow-2xl w-max text-xs md:text-base">
                 <Info size={18} /> {t.ver_detalles}
                 </button>
@@ -356,7 +369,7 @@ export default function Catalog({ appLang, category }) {
             )}
         </div>
 
-        {/* MODAL */}
+        {/* MODAL CON DETALLES RECUPERADOS */}
         {selectedItem && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-8 bg-black/95 backdrop-blur-xl animate-in fade-in duration-300">
                 <div className="absolute inset-0" onClick={closeModal}></div>
@@ -366,15 +379,103 @@ export default function Catalog({ appLang, category }) {
                         <img src={selectedItem.image} className="w-full h-full object-contain sm:object-cover" alt="Poster" />
                         <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a1c] via-transparent sm:bg-gradient-to-r sm:from-transparent sm:to-[#1a1a1c]"></div>
                     </div>
+                    
                     <div className="flex-1 p-6 md:p-10 flex flex-col overflow-y-auto">
-                        {/* Lógica de renderizado del modal interior que ya tenías */}
-                        <h2 className="text-3xl md:text-5xl font-black text-white mb-6">{selectedItem.displayTitle}</h2>
-                        <p className="text-gray-400 text-sm md:text-base leading-relaxed mb-8">{selectedItem.description}</p>
-                        {!selectedItem.isSaga && selectedItem.link !== '#' ? (
-                           <a href={selectedItem.link} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-3 bg-[#e5a00d] text-black font-black py-4 px-6 rounded-full text-sm hover:scale-105 w-max">
-                             <Download size={22} /> {t.descargar}
-                           </a>
-                        ) : null}
+                        {selectedItem.isSaga ? (
+                            <div className="flex flex-col flex-1">
+                                <div className="text-[#e5a00d] font-bold text-xs md:text-sm mb-2 flex items-center gap-1 uppercase tracking-widest"><Layers size={14}/> {t.coleccion_oficial}</div>
+                                <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-white mb-6 leading-snug pb-2">{selectedItem.displayTitle || selectedItem.title}</h2>
+                                <p className="text-gray-400 text-sm md:text-base lg:text-lg font-light leading-relaxed mb-8">{t.pelis_biblioteca?.split(' (')[0]}</p>
+                                <div className="mt-4 flex flex-col gap-8 shrink-0 pb-4">
+                                   <div className="w-full">
+                                      <h4 className="text-white font-bold text-sm md:text-base mb-4 border-b border-white/10 pb-2">{t.pelis_biblioteca} ({selectedItem.movies?.length})</h4>
+                                      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+                                         {selectedItem.movies?.map(movie => (
+                                            <div key={movie.id} className="cursor-pointer group flex flex-col" onClick={() => openModal(movie)}>
+                                               <div className="aspect-[2/3] rounded-md overflow-hidden relative shadow-lg">
+                                                   <LazyImage src={movie.image} alt={movie.displayTitle || movie.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                               </div>
+                                               <p className="text-[11px] md:text-xs font-semibold text-gray-200 mt-2 line-clamp-2 leading-normal pb-1 group-hover:text-[#e5a00d]">{movie.displayTitle || movie.title}</p>
+                                               <p className="text-[9px] md:text-[10px] text-gray-500">{movie.year}</p>
+                                            </div>
+                                         ))}
+                                      </div>
+                                   </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col flex-1">
+                                <div className="flex flex-wrap gap-2 mb-3">
+                                  {selectedItem.genres?.map(g => (
+                                    <span key={g} className="text-[#e5a00d] text-[10px] md:text-xs font-black uppercase tracking-widest">{g}</span>
+                                  ))}
+                                </div>
+                                {selectedItem.collection && (
+                                    <div className="text-gray-400 font-bold text-xs md:text-sm mb-2 flex items-center gap-1 cursor-pointer hover:text-white transition-colors" onClick={() => openModal(sagas.find(s => s.id === `saga-${selectedItem.collection.id}`))}>
+                                        <Layers size={14}/> {selectedItem.collection.name} <ChevronRight size={14}/>
+                                    </div>
+                                )}
+                                <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-white mb-6 leading-snug pb-2">{selectedItem.displayTitle || selectedItem.title}</h2>
+                                <div className="flex flex-wrap items-center gap-3 md:gap-4 mb-6">
+                                  <div className="flex flex-col">
+                                    <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-tighter">{t.año}</span>
+                                    <span className="text-white font-bold">{selectedItem.year}</span>
+                                  </div>
+                                  <div className="w-px h-6 md:h-8 bg-white/10 mx-1 md:mx-2"></div>
+                                  <div className="flex flex-col">
+                                    <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-tighter">TMDB</span>
+                                    <span className="text-white font-bold flex items-center gap-1"><Star size={14} className="text-[#e5a00d]" fill="currentColor"/> {selectedItem.rating}</span>
+                                  </div>
+                                  <div className="w-px h-6 md:h-8 bg-white/10 mx-1 md:mx-2"></div>
+                                  <div className="flex flex-col">
+                                    <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-tighter">{t.calidad}</span>
+                                    <span className={`inline-flex items-center justify-center leading-none px-2 py-1 rounded text-[10px] md:text-[11px] font-black mt-1 uppercase border ${selectedItem.videoQuality === '4K' ? 'bg-[#e5a00d] text-black border-[#e5a00d]' : 'bg-white/10 text-white border-white/20'}`}>
+                                        {selectedItem.videoQuality}
+                                    </span>
+                                  </div>
+                                  <div className="w-px h-6 md:h-8 bg-white/10 mx-1 md:mx-2"></div>
+                                  <div className="flex flex-col">
+                                    <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-tighter">{t.idiomas}</span>
+                                    <span className="text-gray-300 font-medium text-xs md:text-sm mt-1">{selectedItem.language}</span>
+                                  </div>
+                                </div>
+                                <p className="text-gray-400 text-sm md:text-base lg:text-lg font-light leading-relaxed mb-8">{selectedItem.description}</p>
+                                
+                                {selectedItem.link !== '#' ? (
+                                   <a href={selectedItem.link} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-3 bg-[#e5a00d] hover:bg-[#c9890a] text-black font-black py-4 px-6 md:px-10 rounded-full text-sm md:text-lg transition-all hover:scale-105 shadow-xl shadow-[#e5a00d]/10 w-full md:w-max group shrink-0">
+                                     <Download size={22} className="group-hover:translate-y-1 transition-transform" /> {t.descargar}
+                                   </a>
+                                ) : (
+                                   <button disabled className="flex items-center justify-center gap-3 bg-neutral-800 text-gray-500 font-black py-4 px-6 md:px-10 rounded-full text-sm md:text-lg cursor-not-allowed w-full md:w-max shrink-0">
+                                     <AlertTriangle size={22} /> {t.enlace_no_disp}
+                                   </button>
+                                )}
+                                
+                                <div className="mt-12 flex flex-col gap-2 shrink-0 pb-4">
+                                   {sagaItems.length > 0 && (
+                                      <MovieRow 
+                                          title={t.mas_saga}
+                                          items={sagaItems} 
+                                          onSelect={openModal} 
+                                          icon={<Layers size={18} />} 
+                                          isModal={true}
+                                          onTitleClick={() => openModal(sagas.find(s => s.id === `saga-${selectedItem.collection.id}`))}
+                                          t={t}
+                                      />
+                                   )}
+                                   {items.filter(i => !i.isSaga && i.id !== selectedItem.id && i.genres?.some(g => selectedItem.genres?.includes(g))).length > 0 && (
+                                      <MovieRow 
+                                          title={t.titulos_similares}
+                                          items={shuffleArray(items.filter(i => !i.isSaga && i.id !== selectedItem.id && i.genres?.some(g => selectedItem.genres?.includes(g))))} 
+                                          onSelect={openModal} 
+                                          icon={<Star size={18} />} 
+                                          isModal={true}
+                                          t={t}
+                                      />
+                                   )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

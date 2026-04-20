@@ -97,6 +97,9 @@ export default function Live({ appLang }) {
 
   const isLogged = streamPassword && !streamPassword.includes('❌') && !streamPassword.includes('••••') && !streamPassword.includes('Verificando') && !streamPassword.includes('Verificant') && !streamPassword.includes('Egiaztatzen');
 
+  // Enlace devuelto a su versión antigua para que no falle en Discord
+  const discordLoginUrl = "https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify";
+
   return (
     <div className="flex-1 mt-[7.5rem] md:mt-[5rem] px-4 md:px-12 flex flex-col lg:flex-row gap-3 md:gap-6 pb-2 md:pb-6 w-full h-[calc(100vh-8rem)] min-h-0 animate-in fade-in duration-500">
         
@@ -156,7 +159,7 @@ export default function Live({ appLang }) {
                         </div>
 
                         <div className="mt-auto w-full pt-1 pb-1">
-                            <a href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2Fdirectos&scope=identify" className="w-full font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-lg transition-all border border-white/10 bg-[#202225] hover:bg-[#2f3136] text-gray-300 text-[11px] sm:text-xs flex items-center justify-center gap-2 group">
+                            <a href={discordLoginUrl} className="w-full font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-lg transition-all border border-white/10 bg-[#202225] hover:bg-[#2f3136] text-gray-300 text-[11px] sm:text-xs flex items-center justify-center gap-2 group">
                                 <RefreshCw size={14} className="group-hover:rotate-180 transition-transform duration-500" /> {t.refrescar_pass}
                             </a>
                         </div>
@@ -169,7 +172,7 @@ export default function Live({ appLang }) {
                         <h3 className="text-lg sm:text-xl md:text-2xl font-black text-white mb-1 sm:mb-2 shrink-0">{t.pass_directo}</h3>
                         <p className="text-gray-400 text-[10px] sm:text-[11px] md:text-xs mb-3 sm:mb-8 leading-snug shrink-0 max-w-[250px]">{t.desc_directo}</p>
                         
-                        <a href="https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2Fdirectos&scope=identify" className={`font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-lg transition-all w-full shadow-lg flex items-center justify-center gap-2 text-[11px] sm:text-sm shrink-0 mt-auto ${isVerifying ? 'opacity-50 pointer-events-none bg-[#5865F2] text-white' : 'bg-[#5865F2] hover:bg-[#4752C4] text-white'}`}>
+                        <a href={discordLoginUrl} className={`font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-lg transition-all w-full shadow-lg flex items-center justify-center gap-2 text-[11px] sm:text-sm shrink-0 mt-auto ${isVerifying ? 'opacity-50 pointer-events-none bg-[#5865F2] text-white' : 'bg-[#5865F2] hover:bg-[#4752C4] text-white'}`}>
                             {isVerifying ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> {t.verificando}</> : t.verificar_rol}
                         </a>
                     </div>
