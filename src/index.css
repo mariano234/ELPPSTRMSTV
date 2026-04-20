@@ -1,3 +1,62 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* --- ESTILOS GLOBALES E INMERSIVOS --- */
+:root { 
+    color-scheme: dark; 
+    --bg-color: #0f0f0f;
+}
+
+html {
+    /* Forzar que el fondo de la página sea el oscuro y no blanco/gris */
+    background-color: var(--bg-color) !important; 
+    color: #fff;
+    /* Ajustes inmersivos para navegadores móviles (Notch y barra inferior) */
+    background-attachment: fixed;
+    height: -webkit-fill-available;
+    /* Scrollbars para PC */
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+    scrollbar-width: thin;
+    overflow-y: overlay; 
+    overflow-x: hidden;
+}
+
+body {
+    background-color: var(--bg-color) !important;
+    min-height: 100vh;
+    /* Usar el alto real disponible en móviles */
+    min-height: -webkit-fill-available;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    /* Ajuste para que el contenido no quede oculto bajo la barra móvil nativa */
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Ocultar la barra de scroll en móviles pero permitir hacer scroll en los menús horizontales */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+/* --- SCROLLBARS INMERSIVOS PARA PC --- */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent; 
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.3); 
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(229, 160, 13, 0.8);
+}
