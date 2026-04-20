@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* --- ESTILOS GLOBALES E INMERSIVOS --- */
 :root { 
     color-scheme: dark; 
     --bg-color: #0f0f0f;
@@ -11,6 +12,10 @@ html {
     background-color: var(--bg-color) !important; 
     color: #fff;
     overflow-x: hidden;
+    /* Scrollbars inmersivas para PC integradas en el HTML */
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+    scrollbar-width: thin;
+    overflow-y: overlay; 
 }
 
 body {
@@ -21,11 +26,29 @@ body {
     overflow-x: hidden;
 }
 
-/* Scrollbars inmersivos PC */
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.3); border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background-color: rgba(229, 160, 13, 0.8); }
+/* Ocultar la barra de scroll en menús móviles horizontales */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
 
-.scrollbar-hide::-webkit-scrollbar { display: none; }
-.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+/* --- SCROLLBARS INMERSIVOS PARA PC (Webkit) --- */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent; 
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.3); 
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(229, 160, 13, 0.8);
+}
