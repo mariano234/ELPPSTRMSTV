@@ -31,7 +31,6 @@ export default function Catalog({ appLang, category }) {
   const [filterLanguages, setFilterLanguages] = useState([]);
   const [filterYears, setFilterYears] = useState([]);
 
-  // Fetch logic
   useEffect(() => {
     const loadContent = async () => {
       setLoading(true);
@@ -46,7 +45,11 @@ export default function Catalog({ appLang, category }) {
                 if (parsed.items && parsed.items.length > 0) {
                     setItems(parsed.items);
                     setSagas(parsed.sagas || []);
-                    setHeroItem(parsed.items.filter(m => parseFloat(m.rating) > 7.0)[Math.floor(Math.random() * parsed.items.length)] || parsed.items[0]);
+                    
+                    const topMovies = parsed.items.filter(m => parseFloat(m.rating) > 7.0);
+                    const pool = topMovies.length > 0 ? topMovies : parsed.items;
+                    setHeroItem(pool[Math.floor(Math.random() * pool.length)]);
+                    
                     setLoading(false);
                     return;
                 }
@@ -138,7 +141,11 @@ export default function Catalog({ appLang, category }) {
 
         setItems(enriched);
         setSagas(sagasArray);
-        setHeroItem(enriched.filter(m => parseFloat(m.rating) > 7.0)[Math.floor(Math.random() * enriched.length)] || enriched[0]);
+        
+        const topMoviesFetch = enriched.filter(m => parseFloat(m.rating) > 7.0);
+        const poolFetch = topMoviesFetch.length > 0 ? topMoviesFetch : enriched;
+        setHeroItem(poolFetch[Math.floor(Math.random() * poolFetch.length)]);
+        
         setLoading(false);
 
         localStorage.setItem(cacheKeyName, JSON.stringify({ version: CACHE_VERSION, timestamp: Date.now(), items: enriched, sagas: sagasArray }));
@@ -148,7 +155,6 @@ export default function Catalog({ appLang, category }) {
     loadContent();
   }, [appLang]);
 
-  // Sync Modal with URL (El botón de Atrás cierra el modal)
   useEffect(() => {
       if (paramV && items.length > 0) {
           const found = items.find(i => i.id === paramV) || sagas.find(s => s.id === paramV);
@@ -324,20 +330,18 @@ export default function Catalog({ appLang, category }) {
             <div className="absolute inset-0 bg-gradient-to-r from-[#0f0f0f] via-[#0f0f0f]/80 md:via-[#0f0f0f]/60 to-transparent"></div>
             <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f0f] via-[#0f0f0f]/20 md:via-transparent to-transparent"></div>
             
-            {/* Ajuste de márgenes en el contenedor del Hero */}
-            <div className="absolute bottom-6 md:bottom-20 left-4 md:left-12 right-0 z-10 flex flex-col justify-end pt-24 pr-6">
-                <div className="flex items-center gap-2 text-[#e5a00d] font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2 md:mb-4">
+            <div className="absolute bottom-6 md:bottom-20 left-4 md:left-12 right-4 md:right-12 z-10 flex flex-col justify-end pt-24">
+                <div className="flex items-center gap-2 text-[#e5a00d] font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2 md:mb-4 drop-shadow-md">
                     <Film size={14} /> {t.recomendado_para_ti}
                 </div>
-                <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-2 md:mb-4 leading-tight drop-shadow-2xl pr-4">
+                <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-white mb-3 md:mb-5 leading-tight drop-shadow-2xl max-w-4xl lg:max-w-5xl">
                     {heroItem.displayTitle || heroItem.title}
                 </h1>
-                {/* Aquí está la corrección del margen derecho de la descripción */}
-                <p className="text-gray-300 text-xs sm:text-sm md:text-base lg:text-lg line-clamp-3 font-light mb-4 md:mb-6 max-w-xl leading-relaxed pr-8 md:pr-0">
+                <p className="text-gray-200 text-sm sm:text-base md:text-lg lg:text-xl font-normal mb-6 md:mb-8 max-w-[95%] md:max-w-3xl lg:max-w-4xl leading-relaxed md:leading-loose drop-shadow-lg line-clamp-3 md:line-clamp-4">
                     {heroItem.description}
                 </p>
-                <button onClick={() => openModal(heroItem)} className="flex items-center justify-center gap-2 md:gap-3 bg-[#e5a00d] hover:bg-[#c9890a] text-black font-extrabold py-2 md:py-3 px-6 md:px-8 rounded-full transition-all hover:scale-105 shadow-2xl w-max text-xs md:text-base">
-                    <Info size={18} /> {t.ver_detalles}
+                <button onClick={() => openModal(heroItem)} className="flex items-center justify-center gap-2 md:gap-3 bg-[#e5a00d] hover:bg-[#c9890a] text-black font-extrabold py-3 md:py-4 px-8 md:px-10 rounded-full transition-all hover:scale-105 shadow-[0_0_20px_rgba(229,160,13,0.3)] w-max text-xs md:text-base">
+                    <Info size={20} /> {t.ver_detalles}
                 </button>
             </div>
         </div>
@@ -353,7 +357,7 @@ export default function Catalog({ appLang, category }) {
                     </h2>
                     <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
                         {renderFiltersAndSorting()}
-                        <div className="flex items-center gap-1 bg-neutral-900/80 p-1 rounded-lg border border-white/5">
+                        <div className="flex items-center gap-1 bg-neutral-900/80 p-1 rounded-lg border border-white/5 w-max">
                             <button onClick={() => setViewMode('grid')} className={`p-1.5 md:p-2 rounded-md ${viewMode === 'grid' ? 'bg-[#e5a00d] text-black shadow' : 'text-gray-400 hover:text-white'}`}><Grid size={16}/></button>
                             <button onClick={() => setViewMode('list')} className={`p-1.5 md:p-2 rounded-md ${viewMode === 'list' ? 'bg-[#e5a00d] text-black shadow' : 'text-gray-400 hover:text-white'}`}><ListIcon size={16}/></button>
                         </div>
@@ -375,7 +379,6 @@ export default function Catalog({ appLang, category }) {
             )}
         </div>
 
-        {/* MODAL CON DETALLES RECUPERADOS */}
         {selectedItem && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-8 bg-black/95 backdrop-blur-xl animate-in fade-in duration-300">
                 <div className="absolute inset-0" onClick={closeModal}></div>

@@ -5,13 +5,11 @@ import Catalog from './pages/Catalog';
 import Live from './pages/Live';
 import Upcoming from './pages/Upcoming';
 
-// Componente para interceptar el viejo Redirect URI de Discord
 function RootRedirect() {
   const [searchParams] = useSearchParams();
   const tab = searchParams.get('tab');
   const code = searchParams.get('code');
   
-  // Si la URL venía del Discord antiguo (/?tab=directos&code=...) lo redirigimos a la página nueva
   if (tab === 'directos' || code) {
       return <Navigate to={`/directos${code ? `?code=${code}` : ''}`} replace />;
   }
@@ -25,7 +23,6 @@ export default function App() {
     localStorage.setItem('elpepestreams_lang', appLang);
   }, [appLang]);
 
-  // Recuperamos el logo de las palomitas y el título de la pestaña
   useEffect(() => {
     document.title = "ElPepeStreams";
     let link = document.querySelector("link[rel~='icon']");
@@ -45,12 +42,10 @@ export default function App() {
 
         <Routes>
           <Route path="/" element={<RootRedirect />} />
-          
           <Route path="/inicio" element={<Catalog appLang={appLang} category="inicio" />} />
           <Route path="/pelis" element={<Catalog appLang={appLang} category="pelis" />} />
           <Route path="/series" element={<Upcoming appLang={appLang} />} />
           <Route path="/directos" element={<Live appLang={appLang} />} />
-          
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
 
