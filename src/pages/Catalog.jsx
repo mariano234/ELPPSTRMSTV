@@ -324,14 +324,20 @@ export default function Catalog({ appLang, category }) {
             <div className="absolute inset-0 bg-gradient-to-r from-[#0f0f0f] via-[#0f0f0f]/80 md:via-[#0f0f0f]/60 to-transparent"></div>
             <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f0f] via-[#0f0f0f]/20 md:via-transparent to-transparent"></div>
             
-            <div className="absolute bottom-6 md:bottom-20 left-4 md:left-12 max-w-[95%] sm:max-w-[80%] md:max-w-3xl z-10 flex flex-col justify-end pt-24">
+            {/* Ajuste de márgenes en el contenedor del Hero */}
+            <div className="absolute bottom-6 md:bottom-20 left-4 md:left-12 right-0 z-10 flex flex-col justify-end pt-24 pr-6">
                 <div className="flex items-center gap-2 text-[#e5a00d] font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2 md:mb-4">
-                <Film size={14} /> {t.recomendado_para_ti}
+                    <Film size={14} /> {t.recomendado_para_ti}
                 </div>
-                <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-2 md:mb-4 leading-tight drop-shadow-2xl">{heroItem.displayTitle || heroItem.title}</h1>
-                <p className="text-gray-300 text-xs sm:text-sm md:text-base lg:text-lg line-clamp-2 md:line-clamp-3 font-light mb-4 md:mb-6 max-w-xl leading-relaxed">{heroItem.description}</p>
+                <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-2 md:mb-4 leading-tight drop-shadow-2xl pr-4">
+                    {heroItem.displayTitle || heroItem.title}
+                </h1>
+                {/* Aquí está la corrección del margen derecho de la descripción */}
+                <p className="text-gray-300 text-xs sm:text-sm md:text-base lg:text-lg line-clamp-3 font-light mb-4 md:mb-6 max-w-xl leading-relaxed pr-8 md:pr-0">
+                    {heroItem.description}
+                </p>
                 <button onClick={() => openModal(heroItem)} className="flex items-center justify-center gap-2 md:gap-3 bg-[#e5a00d] hover:bg-[#c9890a] text-black font-extrabold py-2 md:py-3 px-6 md:px-8 rounded-full transition-all hover:scale-105 shadow-2xl w-max text-xs md:text-base">
-                <Info size={18} /> {t.ver_detalles}
+                    <Info size={18} /> {t.ver_detalles}
                 </button>
             </div>
         </div>
