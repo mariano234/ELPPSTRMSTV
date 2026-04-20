@@ -72,7 +72,7 @@ export default function Navbar({ appLang, setAppLang }) {
   const showSearch = isActive('/inicio') || isActive('/pelis');
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 w-full ${isScrolled || isMobileSearchOpen ? 'bg-[#141414]/95 backdrop-blur-md shadow-2xl border-b border-white/5' : 'bg-gradient-to-b from-black/90 via-black/50 to-transparent'}`}>
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 w-full ${isScrolled || isMobileSearchOpen ? 'bg-[#141414]/95 backdrop-blur-md shadow-lg' : 'bg-gradient-to-b from-black/90 via-black/50 to-transparent'}`}>
       <div className="px-4 md:px-12 py-3 flex flex-col gap-3">
         
         <div className="flex items-center justify-between w-full">

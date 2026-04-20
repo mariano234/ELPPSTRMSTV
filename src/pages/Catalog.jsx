@@ -330,14 +330,15 @@ export default function Catalog({ appLang, category }) {
             <div className="absolute inset-0 bg-gradient-to-r from-[#0f0f0f] via-[#0f0f0f]/80 md:via-[#0f0f0f]/60 to-transparent"></div>
             <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f0f] via-[#0f0f0f]/20 md:via-transparent to-transparent"></div>
             
+            {/* TEXTOS REDUCIDOS EN PC: lg:text-5xl (Título) y md:text-base lg:text-lg (Descripción) */}
             <div className="absolute bottom-6 md:bottom-20 left-4 md:left-12 right-4 md:right-12 z-10 flex flex-col justify-end pt-24">
                 <div className="flex items-center gap-2 text-[#e5a00d] font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] mb-2 md:mb-4 drop-shadow-md">
                     <Film size={14} /> {t.recomendado_para_ti}
                 </div>
-                <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-white mb-3 md:mb-5 leading-tight drop-shadow-2xl max-w-4xl lg:max-w-5xl">
+                <h1 className="text-3xl sm:text-5xl md:text-5xl lg:text-6xl font-black text-white mb-3 md:mb-4 leading-tight drop-shadow-2xl max-w-3xl lg:max-w-4xl">
                     {heroItem.displayTitle || heroItem.title}
                 </h1>
-                <p className="text-gray-200 text-sm sm:text-base md:text-lg lg:text-xl font-normal mb-6 md:mb-8 max-w-[95%] md:max-w-3xl lg:max-w-4xl leading-relaxed md:leading-loose drop-shadow-lg line-clamp-3 md:line-clamp-4">
+                <p className="text-gray-200 text-sm sm:text-base md:text-base lg:text-lg font-normal mb-6 md:mb-8 max-w-[95%] md:max-w-2xl lg:max-w-3xl leading-relaxed drop-shadow-lg line-clamp-3 md:line-clamp-4">
                     {heroItem.description}
                 </p>
                 <button onClick={() => openModal(heroItem)} className="flex items-center justify-center gap-2 md:gap-3 bg-[#e5a00d] hover:bg-[#c9890a] text-black font-extrabold py-3 md:py-4 px-8 md:px-10 rounded-full transition-all hover:scale-105 shadow-[0_0_20px_rgba(229,160,13,0.3)] w-max text-xs md:text-base">
