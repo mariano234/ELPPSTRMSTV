@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AlertTriangle, Cast } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { extractIdentifier } from '../utils';
 import { API_BASE } from '../config';
 
@@ -11,56 +11,54 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
     
     const [error, setError] = useState(null);
     const [status, setStatus] = useState('Autenticando...');
+    const [quality, setQuality] = useState(1080); // 1080 para 'src', 720 para 'medium'
 
-    const handleCastRequest = () => {
+    // Exponemos la función de cast de forma global para que el listener pueda acceder siempre a la URL más reciente
+    window.loadCastMedia = (session) => {
         if (!m3u8UrlRef.current) return;
 
-        if (window.cast && window.cast.framework) {
-            try {
-                const castContext = window.cast.framework.CastContext.getInstance();
-                
-                const loadMediaToCast = (session) => {
-                    const origin = window.location.origin.includes('localhost') ? 'https://elppstrmstv.pages.dev' : window.location.origin;
-                    const absoluteUrl = m3u8UrlRef.current.startsWith('http') 
-                        ? m3u8UrlRef.current 
-                        : origin + m3u8UrlRef.current;
-                        
-                    const mediaInfo = new window.chrome.cast.media.MediaInfo(absoluteUrl, 'application/x-mpegurl');
-                    mediaInfo.metadata = new window.chrome.cast.media.GenericMediaMetadata();
-                    mediaInfo.metadata.title = 'Directo - ElPepeStreams';
-                    
-                    const request = new window.chrome.cast.media.LoadRequest(mediaInfo);
-                    
-                    session.loadMedia(request).then(
-                        () => console.log('Chromecast: Vídeo cargado correctamente.'),
-                        (err) => {
-                            console.error('Chromecast Error:', err);
-                            alert("El televisor no pudo reproducir el formato.");
-                        }
-                    );
-                };
-
-                const currentSession = castContext.getCurrentSession();
-                
-                if (currentSession) {
-                    loadMediaToCast(currentSession);
-                } else {
-                    castContext.requestSession().then(
-                        () => {
-                            const newSession = castContext.getCurrentSession();
-                            if (newSession) loadMediaToCast(newSession);
-                        },
-                        (err) => console.log('Cast cancelado.', err)
-                    );
-                }
-            } catch (e) {
-                alert(t.error_cast);
+        const origin = window.location.origin.includes('localhost') ? 'https://elppstrmstv.pages.dev' : window.location.origin;
+        // Engañamos a las TVs Samsung/LG añadiendo &ext=.m3u8 al final para que el parser lo reconozca
+        const absoluteUrl = (m3u8UrlRef.current.startsWith('http') ? m3u8UrlRef.current : origin + m3u8UrlRef.current) + '&ext=.m3u8';
+            
+        const mediaInfo = new window.chrome.cast.media.MediaInfo(absoluteUrl, 'application/x-mpegurl');
+        mediaInfo.streamType = window.chrome.cast.media.StreamType.LIVE; // CRÍTICO para Smart TVs
+        mediaInfo.metadata = new window.chrome.cast.media.GenericMediaMetadata();
+        mediaInfo.metadata.title = 'Directo - ElPepeStreams';
+        
+        const request = new window.chrome.cast.media.LoadRequest(mediaInfo);
+        
+        session.loadMedia(request).then(
+            () => console.log('Chromecast: Vídeo cargado correctamente.'),
+            (err) => {
+                console.error('Chromecast Error:', err);
+                alert("El televisor no pudo reproducir el formato de AngelThump.");
             }
-        } else {
-            alert(t.error_cast);
-        }
+        );
     };
 
+    // --- ROTACIÓN AUTOMÁTICA EN MÓVILES ---
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            if (document.fullscreenElement) {
+                try {
+                    if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
+                        window.screen.orientation.lock('landscape').catch(() => {});
+                    }
+                } catch (e) {}
+            } else {
+                try {
+                    if (window.screen && window.screen.orientation && window.screen.orientation.unlock) {
+                        window.screen.orientation.unlock();
+                    }
+                } catch (e) {}
+            }
+        };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    }, []);
+
+    // --- LÓGICA PRINCIPAL DEL REPRODUCTOR ---
     useEffect(() => {
         let isMounted = true;
 
@@ -98,9 +96,11 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                 if (!res.ok) throw new Error(data.error || "Error al verificar las credenciales");
                 if (!data.token) throw new Error("Angelthump no devolvió ningún token válido.");
 
-                const rawM3u8 = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
-                let m3u8Url = `${API_BASE}/angelthump?url=${encodeURIComponent(rawM3u8)}`;
+                // Seleccionamos el archivo de streaming según la calidad elegida
+                const targetFile = quality === 1080 ? `${channel}.m3u8` : `${channel}_medium.m3u8`;
+                const rawM3u8 = `https://vigor.angelthump.com/hls/${targetFile}?token=${data.token}`;
                 
+                let m3u8Url = `${API_BASE}/angelthump?url=${encodeURIComponent(rawM3u8)}`;
                 if (usePatreon && identifier) {
                     m3u8Url += `&identifier=${encodeURIComponent(identifier)}&sid=${encodeURIComponent(cleanSid)}`;
                 }
@@ -137,16 +137,28 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                     document.head.appendChild(script);
                 });
 
+                // Inicializar Chromecast
                 await new Promise((resolve) => {
                     if (window.chrome && window.chrome.cast && window.chrome.cast.isAvailable) {
                         return resolve();
                     }
                     window.__onGCastApiAvailable = function(isAvailable) {
                         if (isAvailable && window.cast && window.chrome && window.chrome.cast) {
-                            window.cast.framework.CastContext.getInstance().setOptions({
+                            const context = window.cast.framework.CastContext.getInstance();
+                            context.setOptions({
                                 receiverApplicationId: window.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
                                 autoJoinPolicy: window.chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
                             });
+                            
+                            // Escucha cuando se conecta un TV para inyectar la URL del stream
+                            context.addEventListener(
+                                window.cast.framework.CastContextEventType.SESSION_STATE_CHANGED,
+                                (event) => {
+                                    if (event.sessionState === window.cast.framework.SessionState.SESSION_STARTED) {
+                                        window.loadCastMedia(context.getCurrentSession());
+                                    }
+                                }
+                            );
                         }
                         resolve();
                     };
@@ -175,10 +187,51 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                 const videoEl = document.getElementById('native-video-player');
                 if (!videoEl) throw new Error("No se pudo inyectar el elemento de vídeo.");
 
+                // --- CONFIGURACIÓN PLYR CON CALIDAD MANUAL ---
                 const plyrOptions = {
                     controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'settings', 'pip', 'airplay', 'fullscreen'],
                     settings: ['quality'],
+                    quality: {
+                        default: quality,
+                        options: [1080, 720],
+                        forced: true,
+                        onChange: (newQuality) => {
+                            if (newQuality !== quality) setQuality(newQuality);
+                        }
+                    },
+                    i18n: {
+                        qualityLabel: {
+                            1080: '1080p (Source)',
+                            720: '720p (Medium)'
+                        }
+                    },
                     autoplay: true
+                };
+
+                // --- INYECTAR BOTÓN CHROMECAST DENTRO DE PLYR ---
+                const setupCustomCastButton = (player) => {
+                    player.on('ready', () => {
+                        const controls = document.querySelector('.plyr__controls');
+                        if (controls && !document.getElementById('plyr-cast-btn')) {
+                            const castContainer = document.createElement('div');
+                            castContainer.id = 'plyr-cast-btn';
+                            castContainer.className = 'plyr__controls__item plyr__control';
+                            castContainer.style.display = 'flex';
+                            castContainer.style.alignItems = 'center';
+                            castContainer.style.justifyContent = 'center';
+                            castContainer.style.padding = '0 5px';
+                            // Invocamos el botón nativo de Google Cast
+                            castContainer.innerHTML = `<google-cast-launcher style="width: 22px; height: 22px; cursor: pointer; --connected-color: #e5a00d; --disconnected-color: white;"></google-cast-launcher>`;
+                            
+                            // Insertar justo antes del botón de Pantalla Completa
+                            const fullscreenBtn = controls.querySelector('[data-plyr="fullscreen"]');
+                            if (fullscreenBtn) {
+                                controls.insertBefore(castContainer, fullscreenBtn);
+                            } else {
+                                controls.appendChild(castContainer);
+                            }
+                        }
+                    });
                 };
 
                 if (window.Hls.isSupported()) {
@@ -190,6 +243,7 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                     hls.on(window.Hls.Events.MANIFEST_PARSED, function () {
                         if (!isMounted) return;
                         playerInstanceRef.current = new window.Plyr(videoEl, plyrOptions);
+                        setupCustomCastButton(playerInstanceRef.current);
                         setStatus(''); 
                         videoEl.play().catch(e => console.log("Clic requerido para auto-play."));
                     });
@@ -208,10 +262,12 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                     });
 
                 } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Soporte Nativo (iOS Safari)
                     videoEl.src = m3u8Url;
                     videoEl.addEventListener('loadedmetadata', function () {
                         if (!isMounted) return;
                         playerInstanceRef.current = new window.Plyr(videoEl, plyrOptions);
+                        setupCustomCastButton(playerInstanceRef.current);
                         setStatus('');
                         videoEl.play().catch(() => {});
                     });
@@ -230,10 +286,10 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
             if (hlsInstanceRef.current) hlsInstanceRef.current.destroy();
             if (playerInstanceRef.current) playerInstanceRef.current.destroy();
         };
-    }, [streamSid, streamPassword, channel, usePatreon]);
+    }, [streamSid, streamPassword, channel, usePatreon, quality]); // Recarga si cambias la calidad
 
     return (
-        <div className="w-full h-full bg-black relative flex items-center justify-center group/vid">
+        <div className="w-full h-full bg-black relative flex items-center justify-center">
             {status && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-20 flex-col gap-4">
                     <div className="w-10 h-10 border-4 border-[#e5a00d] border-t-transparent rounded-full animate-spin"></div>
@@ -249,18 +305,6 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
             )}
             
             <div ref={containerRef} className="w-full h-full absolute inset-0 z-10 flex flex-col justify-center"></div>
-
-            {!status && !error && (
-                <div className="absolute top-4 right-4 z-30 opacity-100 lg:opacity-0 lg:group-hover/vid:opacity-100 transition-opacity duration-300">
-                    <button
-                        onClick={handleCastRequest}
-                        className="bg-black/60 hover:bg-[#e5a00d] text-white hover:text-black backdrop-blur-md border border-white/10 p-2.5 rounded-full transition-all shadow-lg flex items-center justify-center"
-                        title={t.enviar_tv}
-                    >
-                        <Cast size={20} />
-                    </button>
-                </div>
-            )}
         </div>
     );
 }
