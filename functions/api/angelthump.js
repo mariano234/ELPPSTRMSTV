@@ -35,25 +35,17 @@ export async function onRequest(context) {
             });
 
             const newHeaders = new Headers(res.headers);
-            // CRÍTICO: Forzar CORS abierto para que el reproductor web y el Chromecast/TV no den error
             newHeaders.set("Access-Control-Allow-Origin", "*");
             newHeaders.set("Access-Control-Allow-Methods", "GET, OPTIONS");
 
-            // Si es un fragmento de video final (.ts, .m4s), lo devolvemos tal cual
             if (!targetUrl.includes('.m3u8')) {
                 return new Response(res.body, { status: res.status, headers: newHeaders });
             }
 
-            // Si es un .m3u8 (lista de reproducción), necesitamos reescribirla dinámicamente
             let text = await res.text();
-            
-            // Base URL original de Angelthump para construir las rutas absolutas
             const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
-            
-            // Base URL de tu propio proxy (Cloudflare Pages/Worker)
             const proxyBase = `${url.origin}${url.pathname}?url=`;
 
-            // Mantenemos los parámetros extra (como el token o sid) por si hacen falta para los fragmentos
             const currentParams = new URLSearchParams(url.search);
             currentParams.delete('url');
             const extraParams = currentParams.toString() ? `&${currentParams.toString()}` : '';
@@ -61,18 +53,22 @@ export async function onRequest(context) {
             const lines = text.split('\n');
             const rewrittenLines = lines.map(line => {
                 line = line.trim();
-                // Si la línea no es un comentario (#) ni está vacía, es un enlace a un archivo de video
-                if (line && !line.startsWith('#')) {
-                    // Aseguramos que la ruta apunte a Angelthump
-                    const absoluteTarget = line.startsWith('http') ? line : baseUrl + line;
-                    // Y obligamos a que pase por nuestro proxy
-                    return proxyBase + encodeURIComponent(absoluteTarget) + extraParams;
+                if (!line) return line;
+
+                // 1. EL FIX: Interceptar URIs dentro de etiquetas #EXT (Ej: #EXT-X-MAP:URI="init.mp4")
+                if (line.startsWith('#')) {
+                    return line.replace(/URI="([^"]+)"/g, (match, fileUri) => {
+                        const absoluteTarget = fileUri.startsWith('http') ? fileUri : baseUrl + fileUri;
+                        return `URI="${proxyBase}${encodeURIComponent(absoluteTarget)}${extraParams}"`;
+                    });
                 }
-                return line;
+
+                // 2. Fragmentos de video normales (.ts, .m4s)
+                const absoluteTarget = line.startsWith('http') ? line : baseUrl + line;
+                return proxyBase + encodeURIComponent(absoluteTarget) + extraParams;
             });
 
-            // MEGA CRÍTICO PARA SMART TV (SAMSUNG S95F / TIZEN): 
-            // Sobrescribimos a la fuerza el Content-Type para que el sistema operativo de la TV lo valide nativamente
+            // MEGA CRÍTICO PARA SMART TV (TIZEN): 
             newHeaders.set("Content-Type", "application/x-mpegurl");
 
             return new Response(rewrittenLines.join('\n'), { status: res.status, headers: newHeaders });
