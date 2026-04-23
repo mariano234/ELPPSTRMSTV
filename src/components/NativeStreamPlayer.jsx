@@ -13,16 +13,14 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
     const [status, setStatus] = useState('Autenticando...');
     const [quality, setQuality] = useState(1080); // 1080 para 'src', 720 para 'medium'
 
-    // Exponemos la función de cast de forma global para que el listener pueda acceder siempre a la URL más reciente
     window.loadCastMedia = (session) => {
         if (!m3u8UrlRef.current) return;
 
         const origin = window.location.origin.includes('localhost') ? 'https://elppstrmstv.pages.dev' : window.location.origin;
-        // Engañamos a las TVs Samsung/LG añadiendo &ext=.m3u8 al final para que el parser lo reconozca
         const absoluteUrl = (m3u8UrlRef.current.startsWith('http') ? m3u8UrlRef.current : origin + m3u8UrlRef.current) + '&ext=.m3u8';
             
         const mediaInfo = new window.chrome.cast.media.MediaInfo(absoluteUrl, 'application/x-mpegurl');
-        mediaInfo.streamType = window.chrome.cast.media.StreamType.LIVE; // CRÍTICO para Smart TVs
+        mediaInfo.streamType = window.chrome.cast.media.StreamType.LIVE; 
         mediaInfo.metadata = new window.chrome.cast.media.GenericMediaMetadata();
         mediaInfo.metadata.title = 'Directo - ElPepeStreams';
         
@@ -37,7 +35,6 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
         );
     };
 
-    // --- ROTACIÓN AUTOMÁTICA EN MÓVILES ---
     useEffect(() => {
         const handleFullscreenChange = () => {
             if (document.fullscreenElement) {
@@ -58,7 +55,6 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
         return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, []);
 
-    // --- LÓGICA PRINCIPAL DEL REPRODUCTOR ---
     useEffect(() => {
         let isMounted = true;
 
@@ -96,7 +92,6 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                 if (!res.ok) throw new Error(data.error || "Error al verificar las credenciales");
                 if (!data.token) throw new Error("Angelthump no devolvió ningún token válido.");
 
-                // Seleccionamos el archivo de streaming según la calidad elegida
                 const targetFile = quality === 1080 ? `${channel}.m3u8` : `${channel}_medium.m3u8`;
                 const rawM3u8 = `https://vigor.angelthump.com/hls/${targetFile}?token=${data.token}`;
                 
@@ -137,7 +132,6 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                     document.head.appendChild(script);
                 });
 
-                // Inicializar Chromecast
                 await new Promise((resolve) => {
                     if (window.chrome && window.chrome.cast && window.chrome.cast.isAvailable) {
                         return resolve();
@@ -150,7 +144,6 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                                 autoJoinPolicy: window.chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
                             });
                             
-                            // Escucha cuando se conecta un TV para inyectar la URL del stream
                             context.addEventListener(
                                 window.cast.framework.CastContextEventType.SESSION_STATE_CHANGED,
                                 (event) => {
@@ -187,7 +180,6 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                 const videoEl = document.getElementById('native-video-player');
                 if (!videoEl) throw new Error("No se pudo inyectar el elemento de vídeo.");
 
-                // --- CONFIGURACIÓN PLYR CON CALIDAD MANUAL ---
                 const plyrOptions = {
                     controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'settings', 'pip', 'airplay', 'fullscreen'],
                     settings: ['quality'],
@@ -205,10 +197,10 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                             720: '720p (Medium)'
                         }
                     },
+                    storage: { enabled: false }, // CRÍTICO: Previene que Plyr auto-seleccione 720p si lo tenías cacheado
                     autoplay: true
                 };
 
-                // --- INYECTAR BOTÓN CHROMECAST DENTRO DE PLYR ---
                 const setupCustomCastButton = (player) => {
                     player.on('ready', () => {
                         const controls = document.querySelector('.plyr__controls');
@@ -220,16 +212,11 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                             castContainer.style.alignItems = 'center';
                             castContainer.style.justifyContent = 'center';
                             castContainer.style.padding = '0 5px';
-                            // Invocamos el botón nativo de Google Cast
                             castContainer.innerHTML = `<google-cast-launcher style="width: 22px; height: 22px; cursor: pointer; --connected-color: #e5a00d; --disconnected-color: white;"></google-cast-launcher>`;
                             
-                            // Insertar justo antes del botón de Pantalla Completa
                             const fullscreenBtn = controls.querySelector('[data-plyr="fullscreen"]');
-                            if (fullscreenBtn) {
-                                controls.insertBefore(castContainer, fullscreenBtn);
-                            } else {
-                                controls.appendChild(castContainer);
-                            }
+                            if (fullscreenBtn) controls.insertBefore(castContainer, fullscreenBtn);
+                            else controls.appendChild(castContainer);
                         }
                     });
                 };
@@ -248,22 +235,41 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                         videoEl.play().catch(e => console.log("Clic requerido para auto-play."));
                     });
 
+                    // CRÍTICO: Control de bucles infinitos y fallbacks de 404
                     hls.on(window.Hls.Events.ERROR, (event, data) => {
                         if (data.fatal && isMounted) {
                             if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
-                                hls.startLoad();
+                                // Si da error de manifiesto (404/403)
+                                if (data.details === window.Hls.ErrorDetails.MANIFEST_LOAD_ERROR || (data.response && data.response.code >= 400)) {
+                                    if (quality === 720) {
+                                        console.warn("720p no disponible. Volviendo a 1080p automáticamente...");
+                                        setQuality(1080); // Auto-rescate
+                                    } else {
+                                        setError('El directo está offline o el token ha caducado.');
+                                        setStatus('');
+                                    }
+                                } else {
+                                    // Error de fragmento, reintentamos
+                                    setTimeout(() => hls.startLoad(), 1000);
+                                }
                             } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
                                 hls.recoverMediaError();
                             } else {
-                                setError('Error crítico de red. Refresca la página.');
+                                setError('Error crítico del reproductor.');
                                 setStatus('');
                             }
                         }
                     });
 
                 } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-                    // Soporte Nativo (iOS Safari)
+                    // Soporte nativo para iOS/Safari
                     videoEl.src = m3u8Url;
+                    videoEl.addEventListener('error', () => {
+                        if (isMounted) {
+                            if (quality === 720) setQuality(1080);
+                            else { setError('El directo está offline.'); setStatus(''); }
+                        }
+                    });
                     videoEl.addEventListener('loadedmetadata', function () {
                         if (!isMounted) return;
                         playerInstanceRef.current = new window.Plyr(videoEl, plyrOptions);
@@ -286,7 +292,7 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
             if (hlsInstanceRef.current) hlsInstanceRef.current.destroy();
             if (playerInstanceRef.current) playerInstanceRef.current.destroy();
         };
-    }, [streamSid, streamPassword, channel, usePatreon, quality]); // Recarga si cambias la calidad
+    }, [streamSid, streamPassword, channel, usePatreon, quality]);
 
     return (
         <div className="w-full h-full bg-black relative flex items-center justify-center">
