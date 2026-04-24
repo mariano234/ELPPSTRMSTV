@@ -11,7 +11,7 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
     
     const [error, setError] = useState(null);
     const [status, setStatus] = useState('Autenticando...');
-    const [quality, setQuality] = useState(1080); // 1080 para 'src', 720 para 'medium'
+    const [quality, setQuality] = useState(1080);
 
     window.loadCastMedia = (session) => {
         if (!m3u8UrlRef.current) return;
@@ -120,6 +120,8 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                         .plyr { width: 100% !important; height: 100% !important; display: flex; flex-direction: column; justify-content: center; }
                         .plyr__video-wrapper { width: 100% !important; height: 100% !important; display: flex; align-items: center; justify-content: center; background: black; }
                         .plyr video { width: 100% !important; height: 100% !important; object-fit: contain !important; }
+                        /* Forzamos a que el deslizador de volumen desaparezca si Plyr intenta renderizarlo */
+                        .plyr__volume input[type="range"] { display: none !important; }
                     `;
                     document.head.appendChild(style);
                 }
@@ -180,8 +182,9 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                 const videoEl = document.getElementById('native-video-player');
                 if (!videoEl) throw new Error("No se pudo inyectar el elemento de vídeo.");
 
+                // ELIMINADO 'volume' (la barra) DEL ARRAY DE CONTROLES. Mantenemos 'mute' (el icono)
                 const plyrOptions = {
-                    controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'settings', 'pip', 'airplay', 'fullscreen'],
+                    controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'settings', 'pip', 'airplay', 'fullscreen'],
                     settings: ['quality'],
                     quality: {
                         default: quality,
@@ -197,26 +200,31 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                             720: '720p (Medium)'
                         }
                     },
-                    storage: { enabled: false }, // CRÍTICO: Previene que Plyr auto-seleccione 720p si lo tenías cacheado
+                    storage: { enabled: false }, 
                     autoplay: true
                 };
 
                 const setupCustomCastButton = (player) => {
                     player.on('ready', () => {
                         const controls = document.querySelector('.plyr__controls');
-                        if (controls && !document.getElementById('plyr-cast-btn')) {
-                            const castContainer = document.createElement('div');
-                            castContainer.id = 'plyr-cast-btn';
-                            castContainer.className = 'plyr__controls__item plyr__control';
-                            castContainer.style.display = 'flex';
-                            castContainer.style.alignItems = 'center';
-                            castContainer.style.justifyContent = 'center';
-                            castContainer.style.padding = '0 5px';
-                            castContainer.innerHTML = `<google-cast-launcher style="width: 22px; height: 22px; cursor: pointer; --connected-color: #e5a00d; --disconnected-color: white;"></google-cast-launcher>`;
+                        if (controls && !document.getElementById('plyr-cast-wrapper')) {
+                            const castWrapper = document.createElement('div');
+                            castWrapper.id = 'plyr-cast-wrapper';
+                            castWrapper.className = 'plyr__controls__item';
+                            castWrapper.style.display = 'flex';
+                            castWrapper.style.alignItems = 'center';
+                            
+                            // Le inyectamos el botón con las clases de Plyr para que tenga hover y tooltip nativo
+                            castWrapper.innerHTML = `
+                                <div class="plyr__control" style="position: relative; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; cursor: pointer;">
+                                    <google-cast-launcher style="width: 22px; height: 22px; cursor: pointer; --connected-color: #e5a00d; --disconnected-color: white;"></google-cast-launcher>
+                                    <span class="plyr__tooltip">Enviar a TV</span>
+                                </div>
+                            `;
                             
                             const fullscreenBtn = controls.querySelector('[data-plyr="fullscreen"]');
-                            if (fullscreenBtn) controls.insertBefore(castContainer, fullscreenBtn);
-                            else controls.appendChild(castContainer);
+                            if (fullscreenBtn) controls.insertBefore(castWrapper, fullscreenBtn);
+                            else controls.appendChild(castWrapper);
                         }
                     });
                 };
@@ -235,21 +243,18 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                         videoEl.play().catch(e => console.log("Clic requerido para auto-play."));
                     });
 
-                    // CRÍTICO: Control de bucles infinitos y fallbacks de 404
                     hls.on(window.Hls.Events.ERROR, (event, data) => {
                         if (data.fatal && isMounted) {
                             if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
-                                // Si da error de manifiesto (404/403)
                                 if (data.details === window.Hls.ErrorDetails.MANIFEST_LOAD_ERROR || (data.response && data.response.code >= 400)) {
                                     if (quality === 720) {
                                         console.warn("720p no disponible. Volviendo a 1080p automáticamente...");
-                                        setQuality(1080); // Auto-rescate
+                                        setQuality(1080); 
                                     } else {
                                         setError('El directo está offline o el token ha caducado.');
                                         setStatus('');
                                     }
                                 } else {
-                                    // Error de fragmento, reintentamos
                                     setTimeout(() => hls.startLoad(), 1000);
                                 }
                             } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
@@ -262,7 +267,6 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                     });
 
                 } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-                    // Soporte nativo para iOS/Safari
                     videoEl.src = m3u8Url;
                     videoEl.addEventListener('error', () => {
                         if (isMounted) {
