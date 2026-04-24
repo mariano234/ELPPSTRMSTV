@@ -13,6 +13,7 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
     const [status, setStatus] = useState('Autenticando...');
     const [quality, setQuality] = useState(1080);
 
+    // Función global para cargar el vídeo en el Chromecast
     window.loadCastMedia = (session) => {
         if (!m3u8UrlRef.current) return;
 
@@ -35,6 +36,7 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
         );
     };
 
+    // Bloqueo de rotación de pantalla en móviles
     useEffect(() => {
         const handleFullscreenChange = () => {
             if (document.fullscreenElement) {
@@ -55,6 +57,7 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
         return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, []);
 
+    // Inicialización del Reproductor
     useEffect(() => {
         let isMounted = true;
 
@@ -120,7 +123,7 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                         .plyr { width: 100% !important; height: 100% !important; display: flex; flex-direction: column; justify-content: center; }
                         .plyr__video-wrapper { width: 100% !important; height: 100% !important; display: flex; align-items: center; justify-content: center; background: black; }
                         .plyr video { width: 100% !important; height: 100% !important; object-fit: contain !important; }
-                        /* Forzamos a que el deslizador de volumen desaparezca si Plyr intenta renderizarlo */
+                        /* Forzamos a que el deslizador de volumen desaparezca */
                         .plyr__volume input[type="range"] { display: none !important; }
                     `;
                     document.head.appendChild(style);
@@ -134,6 +137,7 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                     document.head.appendChild(script);
                 });
 
+                // Inicializar Chromecast
                 await new Promise((resolve) => {
                     if (window.chrome && window.chrome.cast && window.chrome.cast.isAvailable) {
                         return resolve();
@@ -151,6 +155,16 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                                 (event) => {
                                     if (event.sessionState === window.cast.framework.SessionState.SESSION_STARTED) {
                                         window.loadCastMedia(context.getCurrentSession());
+                                    }
+                                }
+                            );
+
+                            // Escuchador de estado para actualizar el botón visual
+                            context.addEventListener(
+                                window.cast.framework.CastContextEventType.CAST_STATE_CHANGED,
+                                (event) => {
+                                    if (window.updateCustomCastButtonState) {
+                                        window.updateCustomCastButtonState(event.castState);
                                     }
                                 }
                             );
@@ -182,7 +196,6 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                 const videoEl = document.getElementById('native-video-player');
                 if (!videoEl) throw new Error("No se pudo inyectar el elemento de vídeo.");
 
-                // ELIMINADO 'volume' (la barra) DEL ARRAY DE CONTROLES. Mantenemos 'mute' (el icono)
                 const plyrOptions = {
                     controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'settings', 'pip', 'airplay', 'fullscreen'],
                     settings: ['quality'],
@@ -204,24 +217,76 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                     autoplay: true
                 };
 
+                // FABRICACIÓN DEL BOTÓN CHROMECAST PERSONALIZADO
                 const setupCustomCastButton = (player) => {
                     player.on('ready', () => {
                         const controls = document.querySelector('.plyr__controls');
-                        if (controls && !document.getElementById('plyr-cast-wrapper')) {
+                        if (controls && !document.getElementById('plyr-custom-cast-btn')) {
                             const castWrapper = document.createElement('div');
-                            castWrapper.id = 'plyr-cast-wrapper';
+                            castWrapper.id = 'plyr-custom-cast-btn';
                             castWrapper.className = 'plyr__controls__item';
                             castWrapper.style.display = 'flex';
                             castWrapper.style.alignItems = 'center';
                             
-                            // Le inyectamos el botón con las clases de Plyr para que tenga hover y tooltip nativo
-                            castWrapper.innerHTML = `
-                                <div class="plyr__control" style="position: relative; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; cursor: pointer;">
-                                    <google-cast-launcher style="width: 22px; height: 22px; cursor: pointer; --connected-color: #e5a00d; --disconnected-color: white;"></google-cast-launcher>
-                                    <span class="plyr__tooltip">Enviar a TV</span>
-                                </div>
-                            `;
+                            const btn = document.createElement('button');
+                            btn.className = 'plyr__control';
+                            btn.type = 'button';
+                            btn.style.position = 'relative';
+                            btn.style.display = 'flex';
+                            btn.style.alignItems = 'center';
+                            btn.style.justifyContent = 'center';
+                            btn.style.width = '34px';
+                            btn.style.height = '34px';
+
+                            const tooltip = document.createElement('span');
+                            tooltip.className = 'plyr__tooltip';
+                            tooltip.innerText = 'Buscando TV...';
+
+                            const iconContainer = document.createElement('div');
                             
+                            btn.appendChild(iconContainer);
+                            btn.appendChild(tooltip);
+                            castWrapper.appendChild(btn);
+
+                            // Lógica de click para solicitar envío a la TV
+                            btn.addEventListener('click', async () => {
+                                const context = window.cast?.framework?.CastContext?.getInstance();
+                                if (context) {
+                                    try { await context.requestSession(); } 
+                                    catch (e) { console.log("Conexión Cast cancelada."); }
+                                }
+                            });
+
+                            // Función para actualizar los iconos y el color
+                            window.updateCustomCastButtonState = (state) => {
+                                const svgNormal = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><path d="M2 20a2 2 0 0 0 2-2"/><path d="M2 16a6 6 0 0 1 6 6"/><path d="M2 12a10 10 0 0 1 10 10"/></svg>`;
+                                const svgTachado = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><path d="M2 20a2 2 0 0 0 2-2"/><path d="M2 16a6 6 0 0 1 6 6"/><path d="M2 12a10 10 0 0 1 10 10"/><line x1="2" y1="2" x2="22" y2="22" stroke="currentColor" stroke-width="2"/></svg>`;
+
+                                if (state === window.cast?.framework?.CastState?.NO_DEVICES_AVAILABLE) {
+                                    iconContainer.innerHTML = svgTachado;
+                                    iconContainer.style.color = '#9ca3af'; // Gris tachado
+                                    btn.style.cursor = 'not-allowed';
+                                    tooltip.innerText = 'TV no encontrada';
+                                } else if (state === window.cast?.framework?.CastState?.CONNECTED) {
+                                    iconContainer.innerHTML = svgNormal;
+                                    iconContainer.style.color = '#e5a00d'; // Naranja activo
+                                    btn.style.cursor = 'pointer';
+                                    tooltip.innerText = 'Desconectar TV';
+                                } else {
+                                    iconContainer.innerHTML = svgNormal;
+                                    iconContainer.style.color = 'white'; // Blanco listo para usar
+                                    btn.style.cursor = 'pointer';
+                                    tooltip.innerText = 'Enviar a TV';
+                                }
+                            };
+
+                            // Estado inicial
+                            if (window.cast?.framework?.CastContext) {
+                                window.updateCustomCastButtonState(window.cast.framework.CastContext.getInstance().getCastState());
+                            } else {
+                                window.updateCustomCastButtonState('NO_DEVICES_AVAILABLE');
+                            }
+
                             const fullscreenBtn = controls.querySelector('[data-plyr="fullscreen"]');
                             if (fullscreenBtn) controls.insertBefore(castWrapper, fullscreenBtn);
                             else controls.appendChild(castWrapper);
