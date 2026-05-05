@@ -2,11 +2,11 @@ export async function onRequest(context) {
     const { request, env } = context;
     const url = new URL(request.url);
 
-    const title = url.searchParams.get('title');
+    const rawTitle = url.searchParams.get('title');
     const year = url.searchParams.get('year') || '';
     const lang = url.searchParams.get('lang') || 'es';
 
-    if (!title) {
+    if (!rawTitle) {
         return new Response(JSON.stringify({ error: "Parámetro 'title' requerido." }), { status: 400 });
     }
 
@@ -24,10 +24,24 @@ export async function onRequest(context) {
             return response;
         }
 
-        const searchUrl = `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&language=${lang}&query=${encodeURIComponent(title)}&page=1&include_adult=false${year && year !== '?' ? `&primary_release_year=${year}` : ''}`;
+        // 1. Limpieza de título: Quitamos posibles fechas entre paréntesis que confunden a TMDB
+        let cleanTitle = rawTitle.replace(/\(\d{4}\)/g, '').trim();
 
-        const tmdbRes = await fetch(searchUrl);
-        const tmdbData = await tmdbRes.json();
+        // 2. Búsqueda estricta (Películas + Año exacto) para la máxima precisión
+        let searchUrl = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&language=${lang}&query=${encodeURIComponent(cleanTitle)}&page=1&include_adult=false`;
+        if (year && year !== '?') {
+            searchUrl += `&primary_release_year=${year}`;
+        }
+
+        let tmdbRes = await fetch(searchUrl);
+        let tmdbData = await tmdbRes.json();
+
+        // 3. Fallback: Si no hay resultados exactos, hacemos búsqueda general sin restricción de año
+        if (!tmdbData.results || tmdbData.results.length === 0) {
+            const fallbackUrl = `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&language=${lang}&query=${encodeURIComponent(cleanTitle)}&page=1&include_adult=false`;
+            tmdbRes = await fetch(fallbackUrl);
+            tmdbData = await tmdbRes.json();
+        }
 
         let result = {
             tmdbTitle: null,
@@ -41,7 +55,7 @@ export async function onRequest(context) {
         };
 
         if (tmdbData.results && tmdbData.results.length > 0) {
-            const item = tmdbData.results.find(i => i.media_type === 'movie' || i.media_type === 'tv') || tmdbData.results[0];
+            const item = tmdbData.results[0];
 
             result.tmdbTitle = item.title || item.name;
             result.year = (item.release_date || item.first_air_date || '').split('-')[0];
@@ -50,7 +64,11 @@ export async function onRequest(context) {
             result.backdrop = item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : null;
             result.rating = item.vote_average ? item.vote_average.toFixed(1) : null;
 
-            if (item.media_type === 'movie') {
+            // Determinar si es Película o Serie (Las de search/movie no traen media_type)
+            const isTV = item.media_type === 'tv' || item.first_air_date !== undefined;
+
+            if (!isTV) { 
+                // Extraer la colección y géneros de la película
                 const detailsRes = await fetch(`https://api.themoviedb.org/3/movie/${item.id}?api_key=${TMDB_API_KEY}&language=${lang}`);
                 const detailsData = await detailsRes.json();
                 
@@ -65,7 +83,8 @@ export async function onRequest(context) {
                 if (detailsData.genres) {
                     result.genres = detailsData.genres.map(g => g.name);
                 }
-            } else if (item.media_type === 'tv') {
+            } else {
+                 // Extraer géneros de la serie
                  const detailsRes = await fetch(`https://api.themoviedb.org/3/tv/${item.id}?api_key=${TMDB_API_KEY}&language=${lang}`);
                  const detailsData = await detailsRes.json();
                  if (detailsData.genres) {

@@ -2,7 +2,6 @@
 // src/utils.js
 // ==========================================
 
-// Extrae el identificador único de la cookie SID de AngelThump/Patreon
 export const extractIdentifier = (sid) => {
     if (!sid) return null;
     try {
@@ -16,7 +15,6 @@ export const extractIdentifier = (sid) => {
     }
 };
 
-// Petición al nuevo proxy de Cloudflare para TMDB (con caché)
 export const fetchTMDB = async (title, year, appLang) => {
     try {
         const url = `/api/tmdb?title=${encodeURIComponent(title)}&year=${encodeURIComponent(year)}&lang=${appLang}`;
@@ -29,7 +27,6 @@ export const fetchTMDB = async (title, year, appLang) => {
     }
 };
 
-// Mezcla aleatoriamente los elementos de un array (usado en el catálogo)
 export const shuffleArray = (array) => {
     const newArray = [...array];
     for (let i = newArray.length - 1; i > 0; i--) {
@@ -39,20 +36,25 @@ export const shuffleArray = (array) => {
     return newArray;
 };
 
-// Formatea la etiqueta de calidad de vídeo
+// ==========================================
+// Lógica estricta de Calidades
+// ==========================================
 export const formatVideoQuality = (quality) => {
     if (!quality) return '';
-    return quality.toString().trim().toUpperCase();
+    const q = quality.toString().toUpperCase().trim();
+    
+    if (q.includes('4K') || q.includes('2160')) return '4K';
+    if (q.includes('1080') || q.includes('720') || q.includes('HD')) return 'HD';
+    if (q.includes('480') || q.includes('360') || q.includes('SD')) return 'SD';
+    
+    return q; 
 };
 
-// Formatea los lenguajes/idiomas
 export const translateLangs = (lang, appLang) => {
     if (!lang) return 'N/A';
     return lang.toString().trim();
 };
 
-// ParseCSV obsoleto (ahora lo hace el backend de Cloudflare en /api/library)
-// Se mantiene exportada como función vacía por si algún componente antiguo aún la importa.
 export const parseCSV = (text) => {
     return [];
 };
