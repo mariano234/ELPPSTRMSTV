@@ -31,9 +31,6 @@ export default function Catalog({ appLang, category }) {
   const [filterLanguages, setFilterLanguages] = useState([]);
   const [filterYears, setFilterYears] = useState([]);
 
-  // ==========================================
-  // NUEVO SISTEMA DE CARGA (MATA-CACHÉS VIA CLOUDFLARE API)
-  // ==========================================
   useEffect(() => {
     const loadContent = async () => {
       setLoading(true);
@@ -48,15 +45,35 @@ export default function Catalog({ appLang, category }) {
         
         if (!response.ok) throw new Error("Error en la sincronización de la biblioteca.");
         const rawItems = await response.json();
+
+        if (!Array.isArray(rawItems)) {
+            throw new Error(rawItems.error || "Formato de datos no válido.");
+        }
         
+        const tmdbCacheKey = `tmdb_data_${appLang}`;
+        let localTmdbCache = {};
+        try {
+            localTmdbCache = JSON.parse(localStorage.getItem(tmdbCacheKey)) || {};
+        } catch(e) {}
+
         const chunkSize = 25; 
         const enriched = [];
         const translatedNoDesc = t.sin_descripcion;
+        let hasNewCache = false;
         
         for (let i = 0; i < rawItems.length; i += chunkSize) {
           const chunk = rawItems.slice(i, i + chunkSize);
           const chunkEnriched = await Promise.all(chunk.map(async (row, idx) => {
-            const tmdb = await fetchTMDB(row.title, row.year, appLang);
+            const cacheId = `${row.title}-${row.year}`;
+            let tmdb = localTmdbCache[cacheId];
+            
+            if (!tmdb) {
+                tmdb = await fetchTMDB(row.title, row.year, appLang);
+                if (tmdb) {
+                    localTmdbCache[cacheId] = tmdb;
+                    hasNewCache = true;
+                }
+            }
             
             return {
               id: `item-${i + idx}`,
@@ -76,6 +93,12 @@ export default function Catalog({ appLang, category }) {
             };
           }));
           enriched.push(...chunkEnriched);
+        }
+
+        if (hasNewCache) {
+            try {
+                localStorage.setItem(tmdbCacheKey, JSON.stringify(localTmdbCache));
+            } catch(e) {}
         }
 
         const sagaMap = new Map();
@@ -281,6 +304,17 @@ export default function Catalog({ appLang, category }) {
           <div className="h-screen flex flex-col items-center justify-center gap-5">
             <div className="w-12 h-12 border-4 border-[#e5a00d] border-t-transparent rounded-full animate-spin"></div>
             <p className="text-gray-500 font-medium animate-pulse">{t.sinc_biblio}</p>
+          </div>
+      );
+  }
+
+  // Visualización del mensaje de error añadido para que nunca se quede en blanco
+  if (error) {
+      return (
+          <div className="h-screen flex flex-col items-center justify-center gap-5 text-center px-4">
+              <AlertTriangle size={48} className="text-red-500" />
+              <p className="text-white font-bold text-xl">Error de sincronización</p>
+              <p className="text-gray-500 max-w-md">{error}</p>
           </div>
       );
   }
