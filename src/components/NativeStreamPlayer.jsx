@@ -11,9 +11,11 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
     
     const [error, setError] = useState(null);
     const [status, setStatus] = useState('Autenticando...');
-    const [quality, setQuality] = useState(1080);
 
-    // Función global para cargar el vídeo en el Chromecast
+    // Iconos de Chromecast clásicos y limpios
+    const svgCastNormal = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/></svg>`;
+    const svgCastTachado = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="2" x2="22" y2="22"/></svg>`;
+
     window.loadCastMedia = (session) => {
         if (!m3u8UrlRef.current) return;
 
@@ -36,7 +38,6 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
         );
     };
 
-    // Bloqueo de rotación de pantalla en móviles
     useEffect(() => {
         const handleFullscreenChange = () => {
             if (document.fullscreenElement) {
@@ -57,7 +58,6 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
         return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, []);
 
-    // Inicialización del Reproductor
     useEffect(() => {
         let isMounted = true;
 
@@ -95,8 +95,8 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                 if (!res.ok) throw new Error(data.error || "Error al verificar las credenciales");
                 if (!data.token) throw new Error("Angelthump no devolvió ningún token válido.");
 
-                const targetFile = quality === 1080 ? `${channel}.m3u8` : `${channel}_medium.m3u8`;
-                const rawM3u8 = `https://vigor.angelthump.com/hls/${targetFile}?token=${data.token}`;
+                // Siempre pedimos la URL MAESTRA (contiene las sub-rutas dinámicas correctas)
+                const rawM3u8 = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
                 
                 let m3u8Url = `${API_BASE}/angelthump?url=${encodeURIComponent(rawM3u8)}`;
                 if (usePatreon && identifier) {
@@ -123,7 +123,6 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                         .plyr { width: 100% !important; height: 100% !important; display: flex; flex-direction: column; justify-content: center; }
                         .plyr__video-wrapper { width: 100% !important; height: 100% !important; display: flex; align-items: center; justify-content: center; background: black; }
                         .plyr video { width: 100% !important; height: 100% !important; object-fit: contain !important; }
-                        /* Forzamos a que el deslizador de volumen desaparezca */
                         .plyr__volume input[type="range"] { display: none !important; }
                     `;
                     document.head.appendChild(style);
@@ -137,7 +136,6 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                     document.head.appendChild(script);
                 });
 
-                // Inicializar Chromecast
                 await new Promise((resolve) => {
                     if (window.chrome && window.chrome.cast && window.chrome.cast.isAvailable) {
                         return resolve();
@@ -159,7 +157,6 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                                 }
                             );
 
-                            // Escuchador de estado para actualizar el botón visual
                             context.addEventListener(
                                 window.cast.framework.CastContextEventType.CAST_STATE_CHANGED,
                                 (event) => {
@@ -196,28 +193,14 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                 const videoEl = document.getElementById('native-video-player');
                 if (!videoEl) throw new Error("No se pudo inyectar el elemento de vídeo.");
 
-                const plyrOptions = {
+                // Configuración Base de Plyr
+                const basePlyrOptions = {
                     controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'settings', 'pip', 'airplay', 'fullscreen'],
                     settings: ['quality'],
-                    quality: {
-                        default: quality,
-                        options: [1080, 720],
-                        forced: true,
-                        onChange: (newQuality) => {
-                            if (newQuality !== quality) setQuality(newQuality);
-                        }
-                    },
-                    i18n: {
-                        qualityLabel: {
-                            1080: '1080p (Source)',
-                            720: '720p (Medium)'
-                        }
-                    },
                     storage: { enabled: false }, 
                     autoplay: true
                 };
 
-                // FABRICACIÓN DEL BOTÓN CHROMECAST PERSONALIZADO
                 const setupCustomCastButton = (player) => {
                     player.on('ready', () => {
                         const controls = document.querySelector('.plyr__controls');
@@ -243,12 +226,13 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                             tooltip.innerText = 'Buscando TV...';
 
                             const iconContainer = document.createElement('div');
+                            iconContainer.style.display = 'flex';
+                            iconContainer.style.alignItems = 'center';
                             
                             btn.appendChild(iconContainer);
                             btn.appendChild(tooltip);
                             castWrapper.appendChild(btn);
 
-                            // Lógica de click para solicitar envío a la TV
                             btn.addEventListener('click', async () => {
                                 const context = window.cast?.framework?.CastContext?.getInstance();
                                 if (context) {
@@ -257,30 +241,25 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                                 }
                             });
 
-                            // Función para actualizar los iconos y el color
                             window.updateCustomCastButtonState = (state) => {
-                                const svgNormal = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><path d="M2 20a2 2 0 0 0 2-2"/><path d="M2 16a6 6 0 0 1 6 6"/><path d="M2 12a10 10 0 0 1 10 10"/></svg>`;
-                                const svgTachado = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><path d="M2 20a2 2 0 0 0 2-2"/><path d="M2 16a6 6 0 0 1 6 6"/><path d="M2 12a10 10 0 0 1 10 10"/><line x1="2" y1="2" x2="22" y2="22" stroke="currentColor" stroke-width="2"/></svg>`;
-
                                 if (state === window.cast?.framework?.CastState?.NO_DEVICES_AVAILABLE) {
-                                    iconContainer.innerHTML = svgTachado;
-                                    iconContainer.style.color = '#9ca3af'; // Gris tachado
+                                    iconContainer.innerHTML = svgCastTachado;
+                                    iconContainer.style.color = '#9ca3af'; 
                                     btn.style.cursor = 'not-allowed';
                                     tooltip.innerText = 'TV no encontrada';
                                 } else if (state === window.cast?.framework?.CastState?.CONNECTED) {
-                                    iconContainer.innerHTML = svgNormal;
-                                    iconContainer.style.color = '#e5a00d'; // Naranja activo
+                                    iconContainer.innerHTML = svgCastNormal;
+                                    iconContainer.style.color = '#e5a00d'; 
                                     btn.style.cursor = 'pointer';
                                     tooltip.innerText = 'Desconectar TV';
                                 } else {
-                                    iconContainer.innerHTML = svgNormal;
-                                    iconContainer.style.color = 'white'; // Blanco listo para usar
+                                    iconContainer.innerHTML = svgCastNormal;
+                                    iconContainer.style.color = 'white'; 
                                     btn.style.cursor = 'pointer';
                                     tooltip.innerText = 'Enviar a TV';
                                 }
                             };
 
-                            // Estado inicial
                             if (window.cast?.framework?.CastContext) {
                                 window.updateCustomCastButtonState(window.cast.framework.CastContext.getInstance().getCastState());
                             } else {
@@ -300,9 +279,36 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                     hls.loadSource(m3u8Url);
                     hls.attachMedia(videoEl);
                     
+                    // Cuando HLS.js lee el manifiesto maestro, inyectamos las calidades detectadas a Plyr
                     hls.on(window.Hls.Events.MANIFEST_PARSED, function () {
                         if (!isMounted) return;
-                        playerInstanceRef.current = new window.Plyr(videoEl, plyrOptions);
+                        
+                        const availableQualities = hls.levels.map(l => l.height).filter(h => h);
+                        let finalOptions = { ...basePlyrOptions };
+
+                        // Si hay calidades detectadas (ej: 1080, 720), montamos el menú
+                        if (availableQualities.length > 0) {
+                            availableQualities.unshift(0); // 0 significa "Auto"
+                            finalOptions.quality = {
+                                default: 0,
+                                options: availableQualities,
+                                forced: true,
+                                onChange: (newQuality) => {
+                                    if (newQuality === 0) {
+                                        hls.currentLevel = -1; // -1 es Auto en hls.js
+                                    } else {
+                                        // Buscamos la calidad elegida y cambiamos "al vuelo"
+                                        const levelIndex = hls.levels.findIndex(l => l.height === newQuality);
+                                        if (levelIndex !== -1) hls.currentLevel = levelIndex;
+                                    }
+                                }
+                            };
+                            finalOptions.i18n = {
+                                qualityLabel: { 0: 'Auto', 1080: '1080p', 720: '720p', 480: '480p' }
+                            };
+                        }
+
+                        playerInstanceRef.current = new window.Plyr(videoEl, finalOptions);
                         setupCustomCastButton(playerInstanceRef.current);
                         setStatus(''); 
                         videoEl.play().catch(e => console.log("Clic requerido para auto-play."));
@@ -311,17 +317,7 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                     hls.on(window.Hls.Events.ERROR, (event, data) => {
                         if (data.fatal && isMounted) {
                             if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
-                                if (data.details === window.Hls.ErrorDetails.MANIFEST_LOAD_ERROR || (data.response && data.response.code >= 400)) {
-                                    if (quality === 720) {
-                                        console.warn("720p no disponible. Volviendo a 1080p automáticamente...");
-                                        setQuality(1080); 
-                                    } else {
-                                        setError('El directo está offline o el token ha caducado.');
-                                        setStatus('');
-                                    }
-                                } else {
-                                    setTimeout(() => hls.startLoad(), 1000);
-                                }
+                                setTimeout(() => hls.startLoad(), 1000);
                             } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
                                 hls.recoverMediaError();
                             } else {
@@ -332,16 +328,16 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                     });
 
                 } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Soporte iOS / Safari Nativo (Gestionan la calidad por sí mismos)
                     videoEl.src = m3u8Url;
                     videoEl.addEventListener('error', () => {
-                        if (isMounted) {
-                            if (quality === 720) setQuality(1080);
-                            else { setError('El directo está offline.'); setStatus(''); }
-                        }
+                        if (isMounted) { setError(`El canal está offline.`); setStatus(''); }
                     });
                     videoEl.addEventListener('loadedmetadata', function () {
                         if (!isMounted) return;
-                        playerInstanceRef.current = new window.Plyr(videoEl, plyrOptions);
+                        // Ocultamos la tuerca en iOS porque Apple controla las calidades
+                        basePlyrOptions.settings = [];
+                        playerInstanceRef.current = new window.Plyr(videoEl, basePlyrOptions);
                         setupCustomCastButton(playerInstanceRef.current);
                         setStatus('');
                         videoEl.play().catch(() => {});
@@ -361,7 +357,7 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
             if (hlsInstanceRef.current) hlsInstanceRef.current.destroy();
             if (playerInstanceRef.current) playerInstanceRef.current.destroy();
         };
-    }, [streamSid, streamPassword, channel, usePatreon, quality]);
+    }, [streamSid, streamPassword, channel, usePatreon]); // <-- Ya no depende de quality
 
     return (
         <div className="w-full h-full bg-black relative flex items-center justify-center">

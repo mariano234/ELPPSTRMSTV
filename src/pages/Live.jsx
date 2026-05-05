@@ -81,6 +81,12 @@ export default function Live({ appLang }) {
                     sessionStorage.setItem('stream_password', finalPass || t.sin_pass);
                     sessionStorage.setItem('stream_auth_time', Date.now().toString());
                     
+                    // --- NUEVO: Limpiar la URL para que el F5 no rompa la sesión ---
+                    const cleanUrl = new URL(window.location);
+                    cleanUrl.searchParams.delete('code');
+                    window.history.replaceState({}, document.title, cleanUrl.toString());
+                    // ---------------------------------------------------------------
+                    
                     if (finalSid) {
                         setStreamSid(finalSid);
                         sessionStorage.setItem('stream_sid', finalSid);
@@ -97,7 +103,6 @@ export default function Live({ appLang }) {
 
   const isLogged = streamPassword && !streamPassword.includes('❌') && !streamPassword.includes('••••') && !streamPassword.includes('Verificando') && !streamPassword.includes('Verificant') && !streamPassword.includes('Egiaztatzen');
 
-  // Enlace devuelto a su versión antigua para que no falle en Discord
   const discordLoginUrl = "https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify";
 
   return (
