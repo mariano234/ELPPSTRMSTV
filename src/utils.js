@@ -18,12 +18,9 @@ export const extractIdentifier = (sid) => {
 export const fetchTMDB = async (title, year, appLang, refresh = false) => {
     try {
         let url = `/api/tmdb?title=${encodeURIComponent(title)}&year=${encodeURIComponent(year)}&lang=${appLang}`;
-        
-        // Si activamos el refresh nuclear, se lo decimos a la API
         if (refresh) {
             url += `&refresh=true`;
         }
-        
         const res = await fetch(url);
         if (!res.ok) return null;
         return await res.json();
@@ -42,13 +39,16 @@ export const shuffleArray = (array) => {
     return newArray;
 };
 
-// Lógica de calidades
+// ==========================================
+// AÑADIDO: 255 a SD
+// ==========================================
 export const formatVideoQuality = (quality) => {
     if (!quality) return '';
     const q = quality.toString().toUpperCase().trim();
     if (q.includes('4K') || q.includes('2160')) return '4K';
     if (q.includes('1080') || q.includes('720') || q.includes('HD')) return 'HD';
-    if (q.includes('480') || q.includes('360') || q.includes('SD')) return 'SD';
+    // Se ha añadido 255 aquí
+    if (q.includes('480') || q.includes('360') || q.includes('255') || q.includes('SD')) return 'SD';
     return q; 
 };
 
@@ -57,7 +57,6 @@ export const translateLangs = (lang, appLang) => {
     return lang.toString().trim();
 };
 
-// Motor de CSV
 export const parseCSV = (text) => {
     const rows = []; let row = []; let current = ''; let inQuotes = false;
     for (let i = 0; i < text.length; i++) {
