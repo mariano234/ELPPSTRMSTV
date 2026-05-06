@@ -15,9 +15,15 @@ export const extractIdentifier = (sid) => {
     }
 };
 
-export const fetchTMDB = async (title, year, appLang) => {
+export const fetchTMDB = async (title, year, appLang, refresh = false) => {
     try {
-        const url = `/api/tmdb?title=${encodeURIComponent(title)}&year=${encodeURIComponent(year)}&lang=${appLang}`;
+        let url = `/api/tmdb?title=${encodeURIComponent(title)}&year=${encodeURIComponent(year)}&lang=${appLang}`;
+        
+        // Si activamos el refresh nuclear, se lo decimos a la API
+        if (refresh) {
+            url += `&refresh=true`;
+        }
+        
         const res = await fetch(url);
         if (!res.ok) return null;
         return await res.json();

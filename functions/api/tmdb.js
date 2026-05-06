@@ -5,6 +5,7 @@ export async function onRequest(context) {
     const rawTitle = url.searchParams.get('title');
     const year = url.searchParams.get('year') || '';
     const lang = url.searchParams.get('lang') || 'es';
+    const forceRefresh = url.searchParams.get('refresh') === 'true';
 
     if (!rawTitle) {
         return new Response(JSON.stringify({ error: "Parámetro 'title' requerido." }), { status: 400 });
@@ -14,19 +15,25 @@ export async function onRequest(context) {
 
     try {
         const cache = caches.default;
-        const cacheKey = new Request(request.url);
-        let response = await cache.match(cacheKey);
-        if (response) return response;
+        
+        // Creamos una clave de caché limpia (sin el parámetro refresh) para poder sobrescribirla correctamente
+        const cacheUrl = new URL(request.url);
+        cacheUrl.searchParams.delete('refresh');
+        const cacheKey = new Request(cacheUrl.toString());
+        
+        // Si hay caché y NO hemos forzado el reinicio, devolvemos lo guardado
+        if (!forceRefresh) {
+            let response = await cache.match(cacheKey);
+            if (response) return response;
+        }
 
         // 1. LIMPIEZA INTELIGENTE DE TÍTULOS
         let cleanTitle = rawTitle.replace(/\(\d{4}\)/g, '').trim();
-        // Generamos un título alternativo quitando números sueltos al final (Ej: "Tyler Rake 1" -> "Tyler Rake")
         let altTitle = cleanTitle.replace(/\s+[1-9]$/, '').trim(); 
         
         let matchedId = null;
         let isCollectionMatch = false;
 
-        // Función estricta: SOLO busca películas, nunca series.
         const fetchMovieId = async (query, y, l) => {
             let sUrl = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&language=${l}&query=${encodeURIComponent(query)}&page=1&include_adult=false`;
             if (y && y !== '?') sUrl += `&primary_release_year=${y}`;
@@ -35,23 +42,19 @@ export async function onRequest(context) {
             return data.results && data.results.length > 0 ? data.results[0].id : null;
         };
 
-        // ==========================================
-        // ALGORITMO DE BÚSQUEDA EN CASCADA
-        // ==========================================
-        
-        // PASO 1: Español + Año Exacto (Primero literal, luego sin el '1' final)
+        // PASO 1: Español + Año Exacto
         if (year && year !== '?') {
             matchedId = await fetchMovieId(cleanTitle, year, 'es');
             if (!matchedId && cleanTitle !== altTitle) matchedId = await fetchMovieId(altTitle, year, 'es');
         }
 
-        // PASO 2: Inglés + Año Exacto (Por si el título original en el Excel está en inglés)
+        // PASO 2: Inglés + Año Exacto
         if (!matchedId && year && year !== '?') {
             matchedId = await fetchMovieId(cleanTitle, year, 'en-US');
             if (!matchedId && cleanTitle !== altTitle) matchedId = await fetchMovieId(altTitle, year, 'en-US');
         }
 
-        // PASO 3: Buscar como Saga / Colección (Si no cuadra el año, a veces es el nombre general de la saga)
+        // PASO 3: Búsqueda como Saga / Colección
         let collectionData = null;
         if (!matchedId) {
             const cUrl = `https://api.themoviedb.org/3/search/collection?api_key=${TMDB_API_KEY}&language=es&query=${encodeURIComponent(altTitle)}&page=1`;
@@ -65,32 +68,20 @@ export async function onRequest(context) {
             }
         }
 
-        // PASO 4: Rescate final -> Película SIN Año (Solo si todo lo demás falló)
+        // PASO 4: Rescate final -> Película SIN Año
         if (!matchedId && !isCollectionMatch) {
             matchedId = await fetchMovieId(cleanTitle, null, 'es');
             if (!matchedId && cleanTitle !== altTitle) matchedId = await fetchMovieId(altTitle, null, 'es');
         }
 
         let result = {
-            tmdbTitle: null,
-            year: null,
-            overview: null,
-            poster: null,
-            backdrop: null,
-            genres: [],
-            collection: null,
-            rating: null
+            tmdbTitle: null, year: null, overview: null, poster: null, backdrop: null, genres: [], collection: null, rating: null
         };
 
-        // ==========================================
-        // EXTRACCIÓN DE METADATOS Y REGLA DE PRIORIDAD
-        // ==========================================
         if (matchedId) {
-            // Solicitamos los datos en el idioma seleccionado por el usuario en la app
             const detailsRes = await fetch(`https://api.themoviedb.org/3/movie/${matchedId}?api_key=${TMDB_API_KEY}&language=${lang}`);
             let details = await detailsRes.json();
 
-            // REGLA DE PRIORIDAD: Si falta descripción o póster en el idioma seleccionado, hacemos fallback
             if (!details.overview || !details.poster_path) {
                 const fallbackLang = lang.startsWith('es') ? 'en-US' : 'es-ES';
                 const fallbackRes = await fetch(`https://api.themoviedb.org/3/movie/${matchedId}?api_key=${TMDB_API_KEY}&language=${fallbackLang}`);
@@ -98,9 +89,8 @@ export async function onRequest(context) {
 
                 if (!details.overview) details.overview = fallbackDetails.overview;
                 if (!details.poster_path) details.poster_path = fallbackDetails.poster_path;
-                if (!details.title) details.title = fallbackDetails.title; // Salvavidas para títulos vacíos
+                if (!details.title) details.title = fallbackDetails.title;
                 
-                // Doble fallback a inglés absoluto si el idioma anterior (ej. francés o español) también estaba incompleto
                 if ((!details.overview || !details.poster_path) && fallbackLang !== 'en-US') {
                     const fb2 = await fetch(`https://api.themoviedb.org/3/movie/${matchedId}?api_key=${TMDB_API_KEY}&language=en-US`);
                     const fbD2 = await fb2.json();
@@ -109,7 +99,6 @@ export async function onRequest(context) {
                 }
             }
 
-            // Asignación final de variables limpias
             result.tmdbTitle = details.title;
             result.year = (details.release_date || '').split('-')[0];
             result.overview = details.overview;
@@ -128,8 +117,6 @@ export async function onRequest(context) {
             if (details.genres) result.genres = details.genres.map(g => g.name);
 
         } else if (isCollectionMatch && collectionData) {
-            
-            // Regla de prioridad aplicada también a las sagas/colecciones
             if (!collectionData.overview || !collectionData.poster_path) {
                 const cFbLang = lang.startsWith('es') ? 'en-US' : 'es-ES';
                 const cFbRes = await fetch(`https://api.themoviedb.org/3/collection/${collectionData.id}?api_key=${TMDB_API_KEY}&language=${cFbLang}`);
@@ -161,6 +148,7 @@ export async function onRequest(context) {
             }
         });
 
+        // Esto sobrescribe la caché antigua con la nueva información fresca
         context.waitUntil(cache.put(cacheKey, jsonResponse.clone()));
         return jsonResponse;
 
