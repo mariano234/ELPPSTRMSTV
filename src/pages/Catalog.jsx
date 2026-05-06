@@ -47,7 +47,7 @@ export default function Catalog({ appLang, category }) {
                     setItems(parsed.items);
                     setSagas(parsed.sagas || []);
                     
-                    const topMovies = parsed.items.filter(m => parseFloat(m.rating) > 7.0);
+                    const topMovies = parsed.items.filter(m => parseFloat(m.rating || 0) > 7.0);
                     const pool = topMovies.length > 0 ? topMovies : parsed.items;
                     setHeroItem(pool[Math.floor(Math.random() * pool.length)]);
                     
@@ -96,7 +96,7 @@ export default function Catalog({ appLang, category }) {
             if (!finalLink || finalLink.toLowerCase() === 'link' || finalLink.toLowerCase() === 'lnkf') finalLink = '#';
             else if (finalLink !== '#' && !finalLink.startsWith('http')) finalLink = 'https://' + finalLink;
 
-            const tmdb = await fetchTMDB(title, year, appLang);
+            const tmdb = await fetchTMDB(title, year, appLang, isRefresh);
             
             return {
               id: `item-${i + idx}`,
@@ -143,7 +143,7 @@ export default function Catalog({ appLang, category }) {
         setItems(enriched);
         setSagas(sagasArray);
         
-        const topMoviesFetch = enriched.filter(m => parseFloat(m.rating) > 7.0);
+        const topMoviesFetch = enriched.filter(m => parseFloat(m.rating || 0) > 7.0);
         const poolFetch = topMoviesFetch.length > 0 ? topMoviesFetch : enriched;
         setHeroItem(poolFetch[Math.floor(Math.random() * poolFetch.length)]);
         
@@ -159,9 +159,8 @@ export default function Catalog({ appLang, category }) {
     };
 
     loadContent();
-  }, [appLang, isRefresh, searchParams, setSearchParams, t.sin_descripcion]);
+  }, [appLang, isRefresh]); 
 
-  // RESTAURADOR DE PAGINACIÓN: Resetea a las primeras 100 pelis cada vez que filtras u ordenas
   useEffect(() => {
     setVisibleCount(100);
   }, [selectedCategory, searchQuery, sortBy, filterGenres, filterQualities, filterLanguages, filterYears]);
@@ -175,25 +174,30 @@ export default function Catalog({ appLang, category }) {
       }
   }, [paramV, items, sagas]);
 
+  // CORRECCIÓN MODAL: Usamos setSearchParams en lugar de navigate para evitar reseteos visuales
   const openModal = (item) => {
       setSelectedItem(item);
-      navigate(`?v=${item.id}${searchQuery ? `&q=${searchQuery}` : ''}`);
+      searchParams.set('v', item.id);
+      setSearchParams(searchParams, { replace: true });
   };
 
   const closeModal = () => {
       setSelectedItem(null);
-      navigate(`${searchQuery ? `?q=${searchQuery}` : ''}`);
+      searchParams.delete('v');
+      setSearchParams(searchParams, { replace: true });
   };
 
   const categoriesData = useMemo(() => {
     if (searchQuery || items.length === 0) return [];
     
     let cats = [];
-    
-    // Eliminados los límites '.slice()' para que la cuadrícula trabaje con toda la biblioteca
     cats.push({ title: t.recomendados, items: shuffleArray([...items]), icon: <Star size={22}/> });
 
-    const topRated = [...items].sort((a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0));
+    // CORRECCIÓN NaN: Los 'N/A' se procesan como un 0 automático para que JavaScript pueda ordenarlos
+    const topRated = [...items]
+        .filter(i => i.rating && i.rating !== 'N/A')
+        .sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
+        
     cats.push({ title: t.mejor_valoradas, items: topRated, icon: null });
 
     const currentYear = new Date().getFullYear();
@@ -236,10 +240,24 @@ export default function Catalog({ appLang, category }) {
     if (filterLanguages.length > 0) result = result.filter(i => i.language && i.language.split(',').map(l => l.trim()).some(l => filterLanguages.includes(l)));
     if (filterYears.length > 0) result = result.filter(i => filterYears.includes(i.year?.toString()));
 
-    if (sortBy === 'az') result.sort((a, b) => (a.displayTitle || a.title).localeCompare(b.displayTitle || b.title));
-    else if (sortBy === 'za') result.sort((a, b) => (b.displayTitle || b.title).localeCompare(a.displayTitle || a.title));
-    else if (sortBy === 'rating') result.sort((a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0));
-    else if (sortBy === 'year') result.sort((a, b) => parseInt(b.year || 0) - parseInt(a.year || 0));
+    // CORRECCIÓN ORDENACIÓN: Fallbacks automáticos a '0' para que el listado global ordenado no se rompa
+    if (sortBy === 'az') {
+        result.sort((a, b) => (a.displayTitle || a.title).localeCompare(b.displayTitle || b.title));
+    } else if (sortBy === 'za') {
+        result.sort((a, b) => (b.displayTitle || b.title).localeCompare(a.displayTitle || a.title));
+    } else if (sortBy === 'rating') {
+        result.sort((a, b) => {
+            const ra = a.rating && a.rating !== 'N/A' ? parseFloat(a.rating) : 0;
+            const rb = b.rating && b.rating !== 'N/A' ? parseFloat(b.rating) : 0;
+            return rb - ra;
+        });
+    } else if (sortBy === 'year') {
+        result.sort((a, b) => {
+            const ya = a.year && a.year !== '?' ? parseInt(a.year) : 0;
+            const yb = b.year && b.year !== '?' ? parseInt(b.year) : 0;
+            return yb - ya;
+        });
+    }
 
     return result;
   }, [rawDisplayItems, filterGenres, filterQualities, filterLanguages, filterYears, sortBy]);

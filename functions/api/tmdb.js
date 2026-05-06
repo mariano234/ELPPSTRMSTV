@@ -7,6 +7,9 @@ export async function onRequest(context) {
     const lang = url.searchParams.get('lang') || 'es';
     const forceRefresh = url.searchParams.get('refresh') === 'true';
 
+    // FORZAR BÚSQUEDA EN CASTELLANO DE ESPAÑA PARA EVITAR TÍTULOS LATINOS
+    const searchLang = lang.startsWith('es') ? 'es-ES' : lang;
+
     if (!rawTitle) {
         return new Response(JSON.stringify({ error: "Parámetro 'title' requerido." }), { status: 400 });
     }
@@ -15,21 +18,19 @@ export async function onRequest(context) {
 
     try {
         const cache = caches.default;
-        
-        // Creamos una clave de caché limpia (sin el parámetro refresh) para poder sobrescribirla correctamente
         const cacheUrl = new URL(request.url);
         cacheUrl.searchParams.delete('refresh');
         const cacheKey = new Request(cacheUrl.toString());
         
-        // Si hay caché y NO hemos forzado el reinicio, devolvemos lo guardado
         if (!forceRefresh) {
             let response = await cache.match(cacheKey);
             if (response) return response;
         }
 
-        // 1. LIMPIEZA INTELIGENTE DE TÍTULOS
+        // LIMPIEZA EN CASCADA PARA TÍTULOS CONFLICTIVOS ("Tyler Rake 1", "Animales fantásticos y...")
         let cleanTitle = rawTitle.replace(/\(\d{4}\)/g, '').trim();
         let altTitle = cleanTitle.replace(/\s+[1-9]$/, '').trim(); 
+        let ultraCleanTitle = altTitle.replace(/[:\-]/g, ' ').replace(/\by\b/gi, ' ').replace(/\s+/g, ' ').trim();
         
         let matchedId = null;
         let isCollectionMatch = false;
@@ -42,22 +43,23 @@ export async function onRequest(context) {
             return data.results && data.results.length > 0 ? data.results[0].id : null;
         };
 
-        // PASO 1: Español + Año Exacto
+        const tryFindMovie = async (searchYear) => {
+            let id = await fetchMovieId(cleanTitle, searchYear, searchLang);
+            if (!id && cleanTitle !== altTitle) id = await fetchMovieId(altTitle, searchYear, searchLang);
+            if (!id && altTitle !== ultraCleanTitle) id = await fetchMovieId(ultraCleanTitle, searchYear, searchLang);
+            if (!id) id = await fetchMovieId(cleanTitle, searchYear, 'en-US'); // Fallback a inglés
+            return id;
+        };
+
+        // PASO 1: Búsqueda con Año Exacto
         if (year && year !== '?') {
-            matchedId = await fetchMovieId(cleanTitle, year, 'es');
-            if (!matchedId && cleanTitle !== altTitle) matchedId = await fetchMovieId(altTitle, year, 'es');
+            matchedId = await tryFindMovie(year);
         }
 
-        // PASO 2: Inglés + Año Exacto
-        if (!matchedId && year && year !== '?') {
-            matchedId = await fetchMovieId(cleanTitle, year, 'en-US');
-            if (!matchedId && cleanTitle !== altTitle) matchedId = await fetchMovieId(altTitle, year, 'en-US');
-        }
-
-        // PASO 3: Búsqueda como Saga / Colección
+        // PASO 2: Búsqueda como Saga / Colección
         let collectionData = null;
         if (!matchedId) {
-            const cUrl = `https://api.themoviedb.org/3/search/collection?api_key=${TMDB_API_KEY}&language=es&query=${encodeURIComponent(altTitle)}&page=1`;
+            const cUrl = `https://api.themoviedb.org/3/search/collection?api_key=${TMDB_API_KEY}&language=${searchLang}&query=${encodeURIComponent(altTitle)}&page=1`;
             const cRes = await fetch(cUrl);
             const cData = await cRes.json();
             if (cData.results && cData.results.length > 0) {
@@ -68,10 +70,9 @@ export async function onRequest(context) {
             }
         }
 
-        // PASO 4: Rescate final -> Película SIN Año
+        // PASO 3: Rescate final -> Película SIN Año
         if (!matchedId && !isCollectionMatch) {
-            matchedId = await fetchMovieId(cleanTitle, null, 'es');
-            if (!matchedId && cleanTitle !== altTitle) matchedId = await fetchMovieId(altTitle, null, 'es');
+            matchedId = await tryFindMovie(null);
         }
 
         let result = {
@@ -82,6 +83,7 @@ export async function onRequest(context) {
             const detailsRes = await fetch(`https://api.themoviedb.org/3/movie/${matchedId}?api_key=${TMDB_API_KEY}&language=${lang}`);
             let details = await detailsRes.json();
 
+            // REGLA DE PRIORIDAD: Rellenar huecos vacíos
             if (!details.overview || !details.poster_path) {
                 const fallbackLang = lang.startsWith('es') ? 'en-US' : 'es-ES';
                 const fallbackRes = await fetch(`https://api.themoviedb.org/3/movie/${matchedId}?api_key=${TMDB_API_KEY}&language=${fallbackLang}`);
@@ -148,7 +150,6 @@ export async function onRequest(context) {
             }
         });
 
-        // Esto sobrescribe la caché antigua con la nueva información fresca
         context.waitUntil(cache.put(cacheKey, jsonResponse.clone()));
         return jsonResponse;
 
