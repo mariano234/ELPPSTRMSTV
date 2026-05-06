@@ -36,17 +36,13 @@ export const shuffleArray = (array) => {
     return newArray;
 };
 
-// ==========================================
-// Lógica estricta de Calidades
-// ==========================================
+// Lógica de calidades
 export const formatVideoQuality = (quality) => {
     if (!quality) return '';
     const q = quality.toString().toUpperCase().trim();
-    
     if (q.includes('4K') || q.includes('2160')) return '4K';
     if (q.includes('1080') || q.includes('720') || q.includes('HD')) return 'HD';
     if (q.includes('480') || q.includes('360') || q.includes('SD')) return 'SD';
-    
     return q; 
 };
 
@@ -55,6 +51,18 @@ export const translateLangs = (lang, appLang) => {
     return lang.toString().trim();
 };
 
+// Motor de CSV
 export const parseCSV = (text) => {
-    return [];
+    const rows = []; let row = []; let current = ''; let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        if (char === '"' && text[i + 1] === '"') { current += '"'; i++; }
+        else if (char === '"') { inQuotes = !inQuotes; }
+        else if (char === ',' && !inQuotes) { row.push(current); current = ''; }
+        else if (char === '\n' && !inQuotes) { row.push(current); rows.push(row); row = []; current = ''; }
+        else if (char !== '\r') { current += char; }
+    }
+    if (current !== '' || text[text.length - 1] === ',') row.push(current);
+    if (row.length > 0) rows.push(row);
+    return rows;
 };

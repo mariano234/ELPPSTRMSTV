@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Film, Info, Grid, List as ListIcon, Filter, Monitor, Globe, Calendar, ArrowDownWideNarrow, X, AlertTriangle, Layers, Star, Download, ChevronLeft, ChevronRight } from 'lucide-react';
-import { UI_TRANSLATIONS } from '../config';
-import { formatVideoQuality, translateLangs, fetchTMDB, shuffleArray } from '../utils';
+import { UI_TRANSLATIONS, SHEET_ID, CACHE_VERSION, CACHE_TTL } from '../config';
+import { parseCSV, formatVideoQuality, translateLangs, fetchTMDB, shuffleArray } from '../utils';
 import MovieRow from '../components/MovieRow';
 import LazyImage from '../components/LazyImage';
 
 export default function Catalog({ appLang, category }) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const t = UI_TRANSLATIONS[appLang] || UI_TRANSLATIONS['es'];
 
   const searchQuery = searchParams.get('q') || "";
   const paramV = searchParams.get('v');
+  const isRefresh = searchParams.get('refresh') === 'true';
 
   const [items, setItems] = useState([]);
   const [sagas, setSagas] = useState([]);
@@ -35,70 +36,86 @@ export default function Catalog({ appLang, category }) {
     const loadContent = async () => {
       setLoading(true);
       setError(null);
-      
       try {
-        const timestamp = new Date().getTime();
-        const response = await fetch(`/api/library?t=${timestamp}`, {
-            cache: 'no-store',
-            headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-        });
-        
-        if (!response.ok) throw new Error("Error en la sincronización de la biblioteca.");
-        const rawItems = await response.json();
+        const cacheKeyName = `plex_library_full_cache_${appLang}`;
+        const cachedRaw = localStorage.getItem(cacheKeyName);
 
-        if (!Array.isArray(rawItems)) {
-            throw new Error(rawItems.error || "Formato de datos no válido.");
+        if (cachedRaw && !isRefresh) {
+            const parsed = JSON.parse(cachedRaw);
+            if (parsed.version === CACHE_VERSION && (Date.now() - parsed.timestamp < CACHE_TTL)) {
+                if (parsed.items && parsed.items.length > 0) {
+                    setItems(parsed.items);
+                    setSagas(parsed.sagas || []);
+                    
+                    const topMovies = parsed.items.filter(m => parseFloat(m.rating) > 7.0);
+                    const pool = topMovies.length > 0 ? topMovies : parsed.items;
+                    setHeroItem(pool[Math.floor(Math.random() * pool.length)]);
+                    
+                    setLoading(false);
+                    return;
+                }
+            }
         }
-        
-        const tmdbCacheKey = `tmdb_data_${appLang}`;
-        let localTmdbCache = {};
-        try {
-            localTmdbCache = JSON.parse(localStorage.getItem(tmdbCacheKey)) || {};
-        } catch(e) {}
 
+        const response = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&_t=${Date.now()}`, { cache: 'no-store' });
+        const csvText = await response.text();
+        const parsedData = parseCSV(csvText);
+        
+        const headerRowIdx = parsedData.findIndex(row => row.some(c => typeof c === 'string' && (c.toLowerCase().includes('título') || c.toLowerCase().includes('title'))));
+        const validHeaderIdx = headerRowIdx !== -1 ? headerRowIdx : 0;
+        const headers = parsedData[validHeaderIdx].map(h => (h || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+        const getIdx = (keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
+        
+        const idxTitle = getIdx(['titulo', 'title']);
+        const idxYear = getIdx(['ano', 'year', 'año']);
+        const idxLang = getIdx(['idioma', 'lenguaje']);
+        const idxQual = getIdx(['calidad']);
+        const idxGen  = getIdx(['genero', 'género']);
+        let idxLink = getIdx(['lnkf']);
+        if (idxLink === -1) idxLink = getIdx(['link final', 'url final', 'descarga']);
+
+        const rawRows = parsedData.slice(validHeaderIdx + 1).filter(r => r[idxTitle]);
         const chunkSize = 25; 
         const enriched = [];
         const translatedNoDesc = t.sin_descripcion;
-        let hasNewCache = false;
         
-        for (let i = 0; i < rawItems.length; i += chunkSize) {
-          const chunk = rawItems.slice(i, i + chunkSize);
+        for (let i = 0; i < rawRows.length; i += chunkSize) {
+          const chunk = rawRows.slice(i, i + chunkSize);
           const chunkEnriched = await Promise.all(chunk.map(async (row, idx) => {
-            const cacheId = `${row.title}-${row.year}`;
-            let tmdb = localTmdbCache[cacheId];
+            const title = row[idxTitle];
+            const year = row[idxYear] || '?';
             
-            if (!tmdb) {
-                tmdb = await fetchTMDB(row.title, row.year, appLang);
-                if (tmdb) {
-                    localTmdbCache[cacheId] = tmdb;
-                    hasNewCache = true;
-                }
+            let rawLink = '';
+            if (idxLink !== -1 && row[idxLink] && typeof row[idxLink] === 'string' && row[idxLink].trim().includes('http')) {
+                rawLink = row[idxLink]; 
+            } else {
+                const cellHttp = [...row].reverse().find(c => c && typeof c === 'string' && (c.trim().includes('http') || c.trim().includes('www.')));
+                if (cellHttp) rawLink = cellHttp;
             }
+            let finalLink = rawLink.trim();
+            if (!finalLink || finalLink.toLowerCase() === 'link' || finalLink.toLowerCase() === 'lnkf') finalLink = '#';
+            else if (finalLink !== '#' && !finalLink.startsWith('http')) finalLink = 'https://' + finalLink;
+
+            const tmdb = await fetchTMDB(title, year, appLang);
             
             return {
               id: `item-${i + idx}`,
               isSaga: false,
-              title: row.title, 
-              displayTitle: tmdb?.tmdbTitle || row.title, 
-              year: tmdb?.year || row.year,
+              title: title, 
+              displayTitle: tmdb?.tmdbTitle || title, 
+              year: tmdb?.year || year,
               description: tmdb?.overview || translatedNoDesc,
-              image: tmdb?.poster || `https://via.placeholder.com/500x750/1a1a1c/e5a00d?text=${encodeURIComponent(row.title)}`,
+              image: tmdb?.poster || `https://via.placeholder.com/500x750/1a1a1c/e5a00d?text=${encodeURIComponent(title)}`,
               backdrop: tmdb?.backdrop || tmdb?.poster,
-              videoQuality: formatVideoQuality(row.quality),
-              language: translateLangs(row.language, appLang),
-              link: row.link,
+              videoQuality: formatVideoQuality(idxQual !== -1 ? row[idxQual] : ''),
+              language: idxLang !== -1 ? translateLangs(row[idxLang], appLang) : 'N/A',
+              link: finalLink,
               genres: tmdb?.genres?.length ? tmdb.genres : ["Otros"],
               collection: tmdb?.collection || null,
               rating: tmdb?.rating || 'N/A'
             };
           }));
           enriched.push(...chunkEnriched);
-        }
-
-        if (hasNewCache) {
-            try {
-                localStorage.setItem(tmdbCacheKey, JSON.stringify(localTmdbCache));
-            } catch(e) {}
         }
 
         const sagaMap = new Map();
@@ -132,14 +149,22 @@ export default function Catalog({ appLang, category }) {
         
         setLoading(false);
 
-      } catch (err) { 
-          setError(err.message); 
-          setLoading(false); 
-      }
+        localStorage.setItem(cacheKeyName, JSON.stringify({ version: CACHE_VERSION, timestamp: Date.now(), items: enriched, sagas: sagasArray }));
+        
+        if (isRefresh) {
+            searchParams.delete('refresh');
+            setSearchParams(searchParams, { replace: true });
+        }
+      } catch (err) { setError(err.message); setLoading(false); }
     };
 
     loadContent();
-  }, [appLang, t.sin_descripcion]);
+  }, [appLang, isRefresh, searchParams, setSearchParams, t.sin_descripcion]);
+
+  // RESTAURADOR DE PAGINACIÓN: Resetea a las primeras 100 pelis cada vez que filtras u ordenas
+  useEffect(() => {
+    setVisibleCount(100);
+  }, [selectedCategory, searchQuery, sortBy, filterGenres, filterQualities, filterLanguages, filterYears]);
 
   useEffect(() => {
       if (paramV && items.length > 0) {
@@ -164,9 +189,11 @@ export default function Catalog({ appLang, category }) {
     if (searchQuery || items.length === 0) return [];
     
     let cats = [];
-    cats.push({ title: t.recomendados, items: shuffleArray(items).slice(0, 30), icon: <Star size={22}/> });
+    
+    // Eliminados los límites '.slice()' para que la cuadrícula trabaje con toda la biblioteca
+    cats.push({ title: t.recomendados, items: shuffleArray([...items]), icon: <Star size={22}/> });
 
-    const topRated = [...items].sort((a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0)).slice(0, 100);
+    const topRated = [...items].sort((a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0));
     cats.push({ title: t.mejor_valoradas, items: topRated, icon: null });
 
     const currentYear = new Date().getFullYear();
@@ -176,13 +203,13 @@ export default function Catalog({ appLang, category }) {
     }
 
     if (sagas.length > 0) {
-        cats.push({ title: t.sagas, items: shuffleArray(sagas), icon: <Layers size={22}/> });
+        cats.push({ title: t.sagas, items: shuffleArray([...sagas]), icon: <Layers size={22}/> });
     }
 
     const allGenres = [...new Set(items.flatMap(i => i.genres))].sort();
     let genreCats = [];
     allGenres.forEach(g => {
-      const filtered = items.filter(i => i.genres.includes(g));
+      const filtered = items.filter(i => i.genres?.includes(g));
       if (filtered.length > 2) genreCats.push({ title: g, items: shuffleArray(filtered), icon: null });
     });
 
@@ -304,17 +331,6 @@ export default function Catalog({ appLang, category }) {
           <div className="h-screen flex flex-col items-center justify-center gap-5">
             <div className="w-12 h-12 border-4 border-[#e5a00d] border-t-transparent rounded-full animate-spin"></div>
             <p className="text-gray-500 font-medium animate-pulse">{t.sinc_biblio}</p>
-          </div>
-      );
-  }
-
-  // Visualización del mensaje de error añadido para que nunca se quede en blanco
-  if (error) {
-      return (
-          <div className="h-screen flex flex-col items-center justify-center gap-5 text-center px-4">
-              <AlertTriangle size={48} className="text-red-500" />
-              <p className="text-white font-bold text-xl">Error de sincronización</p>
-              <p className="text-gray-500 max-w-md">{error}</p>
           </div>
       );
   }
