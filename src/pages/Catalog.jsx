@@ -6,6 +6,16 @@ import { parseCSV, formatVideoQuality, translateLangs, fetchTMDB, shuffleArray }
 import MovieRow from '../components/MovieRow';
 import LazyImage from '../components/LazyImage';
 
+// Generador de firmas para la Sincronización Inteligente del Excel
+const getHash = (str) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash |= 0;
+    }
+    return hash;
+};
+
 export default function Catalog({ appLang, category }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -39,28 +49,37 @@ export default function Catalog({ appLang, category }) {
       try {
         const cacheKeyName = `plex_library_full_cache_${appLang}`;
         const cachedRaw = localStorage.getItem(cacheKeyName);
+        let cachedData = null;
 
         if (cachedRaw && !isRefresh) {
-            const parsed = JSON.parse(cachedRaw);
-            if (parsed.version === CACHE_VERSION && (Date.now() - parsed.timestamp < CACHE_TTL)) {
-                if (parsed.items && parsed.items.length > 0) {
-                    setItems(parsed.items);
-                    setSagas(parsed.sagas || []);
-                    
-                    const topMovies = parsed.items.filter(m => parseFloat(m.rating || 0) > 7.0);
-                    const pool = topMovies.length > 0 ? topMovies : parsed.items;
-                    setHeroItem(pool[Math.floor(Math.random() * pool.length)]);
-                    
-                    setLoading(false);
-                    return;
+            try {
+                const parsed = JSON.parse(cachedRaw);
+                if (parsed.version === CACHE_VERSION) {
+                    cachedData = parsed;
                 }
+            } catch(e) {}
+        }
+
+        // 1. Descargamos el texto crudo del Excel siempre (es ultrarrápido y no consume recursos)
+        const response = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&_t=${Date.now()}`, { cache: 'no-store' });
+        const csvText = await response.text();
+        const currentHash = getHash(csvText);
+
+        // 2. SINCRONIZACIÓN INTELIGENTE: Si el Excel es idéntico a la última vez y la caché sirve, cargamos al instante
+        if (cachedData && cachedData.hash === currentHash && (Date.now() - cachedData.timestamp < CACHE_TTL) && !isRefresh) {
+            if (cachedData.items && cachedData.items.length > 0) {
+                setItems(cachedData.items);
+                setSagas(cachedData.sagas || []);
+                const topMovies = cachedData.items.filter(m => parseFloat(m.rating || 0) > 7.0);
+                const pool = topMovies.length > 0 ? topMovies : cachedData.items;
+                setHeroItem(pool[Math.floor(Math.random() * pool.length)]);
+                setLoading(false);
+                return;
             }
         }
 
-        const response = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&_t=${Date.now()}`, { cache: 'no-store' });
-        const csvText = await response.text();
+        // 3. Si hay cambios en el Excel (Hash distinto) o forzamos refresh, procesamos los datos
         const parsedData = parseCSV(csvText);
-        
         const headerRowIdx = parsedData.findIndex(row => row.some(c => typeof c === 'string' && (c.toLowerCase().includes('título') || c.toLowerCase().includes('title'))));
         const validHeaderIdx = headerRowIdx !== -1 ? headerRowIdx : 0;
         const headers = parsedData[validHeaderIdx].map(h => (h || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
@@ -70,7 +89,6 @@ export default function Catalog({ appLang, category }) {
         const idxYear = getIdx(['ano', 'year', 'año']);
         const idxLang = getIdx(['idioma', 'lenguaje']);
         const idxQual = getIdx(['calidad']);
-        const idxGen  = getIdx(['genero', 'género']);
         let idxLink = getIdx(['lnkf']);
         if (idxLink === -1) idxLink = getIdx(['link final', 'url final', 'descarga']);
 
@@ -149,7 +167,14 @@ export default function Catalog({ appLang, category }) {
         
         setLoading(false);
 
-        localStorage.setItem(cacheKeyName, JSON.stringify({ version: CACHE_VERSION, timestamp: Date.now(), items: enriched, sagas: sagasArray }));
+        // Guardamos la nueva caché, incluyendo el HASH para compararlo en el futuro
+        localStorage.setItem(cacheKeyName, JSON.stringify({ 
+            version: CACHE_VERSION, 
+            timestamp: Date.now(), 
+            hash: currentHash,
+            items: enriched, 
+            sagas: sagasArray 
+        }));
         
         if (isRefresh) {
             searchParams.delete('refresh');
@@ -174,7 +199,6 @@ export default function Catalog({ appLang, category }) {
       }
   }, [paramV, items, sagas]);
 
-  // CORRECCIÓN MODAL: Usamos setSearchParams en lugar de navigate para evitar reseteos visuales
   const openModal = (item) => {
       setSelectedItem(item);
       searchParams.set('v', item.id);
@@ -193,7 +217,6 @@ export default function Catalog({ appLang, category }) {
     let cats = [];
     cats.push({ title: t.recomendados, items: shuffleArray([...items]), icon: <Star size={22}/> });
 
-    // CORRECCIÓN NaN: Los 'N/A' se procesan como un 0 automático para que JavaScript pueda ordenarlos
     const topRated = [...items]
         .filter(i => i.rating && i.rating !== 'N/A')
         .sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
@@ -206,11 +229,16 @@ export default function Catalog({ appLang, category }) {
         cats.push({ title: t.ultimos, items: recentReleases, icon: <Film size={22}/> });
     }
 
+    // Unificación de la categoría Sagas (Se elimina la ambigüedad)
     if (sagas.length > 0) {
-        cats.push({ title: t.sagas, items: shuffleArray([...sagas]), icon: <Layers size={22}/> });
+        cats.push({ title: "Sagas y Colecciones", items: shuffleArray([...sagas]), icon: <Layers size={22}/> });
     }
 
-    const allGenres = [...new Set(items.flatMap(i => i.genres))].sort();
+    // Filtro para eliminar la etiqueta genérica "Saga" o "Sagas" y evitar la fila duplicada
+    const allGenres = [...new Set(items.flatMap(i => i.genres))]
+        .filter(g => g && g.toLowerCase() !== 'saga' && g.toLowerCase() !== 'sagas')
+        .sort();
+        
     let genreCats = [];
     allGenres.forEach(g => {
       const filtered = items.filter(i => i.genres?.includes(g));
@@ -228,7 +256,7 @@ export default function Catalog({ appLang, category }) {
       )
     : (selectedCategory ? selectedCategory.items : []);
 
-  const availableGenres = useMemo(() => Array.from(new Set(rawDisplayItems.flatMap(i => i.genres || []))).sort(), [rawDisplayItems]);
+  const availableGenres = useMemo(() => Array.from(new Set(rawDisplayItems.flatMap(i => i.genres || []))).filter(g => g && g.toLowerCase() !== 'saga').sort(), [rawDisplayItems]);
   const availableQualities = useMemo(() => Array.from(new Set(rawDisplayItems.map(i => i.videoQuality).filter(q => q && q !== 'N/A'))).sort((a, b) => b.localeCompare(a)), [rawDisplayItems]);
   const availableLanguages = useMemo(() => Array.from(new Set(rawDisplayItems.flatMap(i => i.language ? i.language.split(',').map(l => l.trim()) : []).filter(l => l !== 'N/A'))).sort(), [rawDisplayItems]);
   const availableYears = useMemo(() => Array.from(new Set(rawDisplayItems.map(i => i.year).filter(y => y && y !== '?' && y !== 'N/A'))).sort((a, b) => parseInt(b) - parseInt(a)), [rawDisplayItems]);
@@ -240,7 +268,6 @@ export default function Catalog({ appLang, category }) {
     if (filterLanguages.length > 0) result = result.filter(i => i.language && i.language.split(',').map(l => l.trim()).some(l => filterLanguages.includes(l)));
     if (filterYears.length > 0) result = result.filter(i => filterYears.includes(i.year?.toString()));
 
-    // CORRECCIÓN ORDENACIÓN: Fallbacks automáticos a '0' para que el listado global ordenado no se rompa
     if (sortBy === 'az') {
         result.sort((a, b) => (a.displayTitle || a.title).localeCompare(b.displayTitle || b.title));
     } else if (sortBy === 'za') {
