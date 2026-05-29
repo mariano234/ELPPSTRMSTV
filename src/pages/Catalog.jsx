@@ -93,7 +93,7 @@ export default function Catalog({ appLang, category }) {
         if (idxLink === -1) idxLink = getIdx(['link final', 'url final', 'descarga']);
 
         const rawRows = parsedData.slice(validHeaderIdx + 1).filter(r => r[idxTitle]);
-        const chunkSize = 25; 
+        const chunkSize = 15; 
         const enriched = [];
         const translatedNoDesc = t.sin_descripcion;
         

@@ -30,7 +30,7 @@ export async function onRequest(context) {
             if (response) return response;
         }
 
-        let cleanTitle = rawTitle.replace(/\(\d{4}\)/g, '').trim();
+        let cleanTitle = rawTitle.replace(/\(\d{4}\)/g, '').replace(/\[.*?\]/g, '').trim();
         let altTitle = cleanTitle.replace(/\s+[1-9]$/, '').trim(); 
         let ultraCleanTitle = altTitle.replace(/[:\-]/g, ' ').replace(/\by\b/gi, ' ').replace(/\s+/g, ' ').trim();
         

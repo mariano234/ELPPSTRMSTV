@@ -15,16 +15,26 @@ export const extractIdentifier = (sid) => {
     }
 };
 
-export const fetchTMDB = async (title, year, appLang, refresh = false) => {
+export const fetchTMDB = async (title, year, appLang, refresh = false, retries = 2) => {
     try {
         let url = `/api/tmdb?title=${encodeURIComponent(title)}&year=${encodeURIComponent(year)}&lang=${appLang}`;
-        if (refresh) {
-            url += `&refresh=true`;
-        }
+        if (refresh) url += `&refresh=true`;
+        
         const res = await fetch(url);
-        if (!res.ok) return null;
+        // Si hay error (ej. límite de Cloudflare), reintentamos tras medio segundo
+        if (!res.ok) {
+            if (retries > 0) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                return fetchTMDB(title, year, appLang, refresh, retries - 1);
+            }
+            return null;
+        }
         return await res.json();
     } catch (error) {
+        if (retries > 0) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return fetchTMDB(title, year, appLang, refresh, retries - 1);
+        }
         console.error("Error al obtener metadatos de TMDB:", error);
         return null;
     }

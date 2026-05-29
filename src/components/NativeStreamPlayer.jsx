@@ -24,13 +24,24 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
             
         const mediaInfo = new window.chrome.cast.media.MediaInfo(absoluteUrl, 'application/x-mpegurl');
         mediaInfo.streamType = window.chrome.cast.media.StreamType.LIVE; 
+
+        // --- SE PASA A FMP4 PARA QUE FUNCIONE EN TV ---
+        mediaInfo.hlsSegmentFormat = window.chrome.cast.media.HlsSegmentFormat.FMP4;
+        mediaInfo.hlsVideoSegmentFormat = window.chrome.cast.media.HlsVideoSegmentFormat.FMP4;
+        // --------------------------------------------------------
+
         mediaInfo.metadata = new window.chrome.cast.media.GenericMediaMetadata();
         mediaInfo.metadata.title = 'Directo - ElPepeStreams';
         
         const request = new window.chrome.cast.media.LoadRequest(mediaInfo);
+        request.autoplay = true; // Forzamos el auto-play en la tele
         
         session.loadMedia(request).then(
-            () => console.log('Chromecast: Vídeo cargado correctamente.'),
+            () => {
+                console.log('Chromecast: Vídeo cargado correctamente.');
+                // Si arranca en la tele, pausamos el reproductor de la web
+                if (playerInstanceRef.current) playerInstanceRef.current.pause();
+            },
             (err) => {
                 console.error('Chromecast Error:', err);
                 alert("El televisor no pudo reproducir el formato de AngelThump.");
