@@ -109,12 +109,7 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                 // Siempre pedimos la URL MAESTRA (contiene las sub-rutas dinámicas correctas)
                 const rawM3u8 = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
                 
-                let m3u8Url = `${API_BASE}/angelthump?url=${encodeURIComponent(rawM3u8)}`;
-                if (usePatreon && identifier) {
-                    m3u8Url += `&identifier=${encodeURIComponent(identifier)}&sid=${encodeURIComponent(cleanSid)}`;
-                }
-
-                m3u8UrlRef.current = m3u8Url;
+                m3u8UrlRef.current = rawM3u8;
 
                 if (!isMounted) return;
 
