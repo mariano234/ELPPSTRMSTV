@@ -106,10 +106,12 @@ export default function NativeStreamPlayer({ streamSid, streamPassword, channel,
                 if (!res.ok) throw new Error(data.error || "Error al verificar las credenciales");
                 if (!data.token) throw new Error("Angelthump no devolvió ningún token válido.");
 
-                // Siempre pedimos la URL MAESTRA (contiene las sub-rutas dinámicas correctas)
+                // Siempre pedimos la URL MAESTRA directa a Angelthump (Sin pasar por Cloudflare)
                 const rawM3u8 = `https://vigor.angelthump.com/hls/${channel}.m3u8?token=${data.token}`;
-                
-                m3u8UrlRef.current = rawM3u8;
+
+                // Creamos la variable que necesita el reproductor de vídeo y el Chromecast
+                const m3u8Url = rawM3u8;
+                m3u8UrlRef.current = m3u8Url;
 
                 if (!isMounted) return;
 
