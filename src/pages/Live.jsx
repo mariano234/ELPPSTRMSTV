@@ -111,7 +111,13 @@ export default function Live({ appLang }) {
         <div className="w-full flex-1 bg-black rounded-xl overflow-hidden border border-white/10 relative shadow-2xl flex items-center justify-center shrink-0 lg:shrink aspect-video lg:aspect-auto min-h-0">
             <div className="absolute inset-0 w-full h-full">
                 {isLogged ? (
-                    <NativeStreamPlayer streamSid={streamSid} streamPassword={streamPassword} channel={selectedChannel} usePatreon={usePatreon} t={t} />
+                    <NativeStreamPlayer 
+                        streamSid={selectedChannel === STREAM_CHANNEL ? streamSid : null} 
+                        streamPassword={selectedChannel === STREAM_CHANNEL ? streamPassword : ""} 
+                        channel={selectedChannel} 
+                        usePatreon={selectedChannel === STREAM_CHANNEL ? usePatreon : false} 
+                        t={t} 
+                    />
                 ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-900/80 backdrop-blur-md relative z-10">
                         <div className="bg-[#5865F2]/20 p-4 md:p-6 rounded-full mb-4 md:mb-6 border border-[#5865F2]/30 shadow-[0_0_30px_rgba(88,101,242,0.3)]">
