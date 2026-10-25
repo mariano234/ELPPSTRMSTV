@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Lock, Server, CheckCircle, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Lock, Server, CheckCircle, RefreshCw, AlertTriangle, MonitorPlay } from 'lucide-react';
 import NativeStreamPlayer from '../components/NativeStreamPlayer';
 import { UI_TRANSLATIONS, API_BASE, STREAM_CHANNEL } from '../config';
 
@@ -15,6 +15,8 @@ export default function Live({ appLang }) {
   const [streamSid, setStreamSid] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [usePatreon, setUsePatreon] = useState(false); 
+  
+  const [selectedChannel, setSelectedChannel] = useState(STREAM_CHANNEL);
 
   useEffect(() => {
     const savedPassword = sessionStorage.getItem('stream_password');
@@ -81,11 +83,9 @@ export default function Live({ appLang }) {
                     sessionStorage.setItem('stream_password', finalPass || t.sin_pass);
                     sessionStorage.setItem('stream_auth_time', Date.now().toString());
                     
-                    // --- NUEVO: Limpiar la URL para que el F5 no rompa la sesión ---
                     const cleanUrl = new URL(window.location);
                     cleanUrl.searchParams.delete('code');
                     window.history.replaceState({}, document.title, cleanUrl.toString());
-                    // ---------------------------------------------------------------
                     
                     if (finalSid) {
                         setStreamSid(finalSid);
@@ -99,7 +99,7 @@ export default function Live({ appLang }) {
             .catch(err => setStreamPassword("❌ Error Backend"))
             .finally(() => { setIsVerifying(false); isFetchingDiscord = false; });
     }
-  }, [code]);
+  }, [code, t]);
 
   const isLogged = streamPassword && !streamPassword.includes('❌') && !streamPassword.includes('••••') && !streamPassword.includes('Verificando') && !streamPassword.includes('Verificant') && !streamPassword.includes('Egiaztatzen');
 
@@ -111,7 +111,7 @@ export default function Live({ appLang }) {
         <div className="w-full flex-1 bg-black rounded-xl overflow-hidden border border-white/10 relative shadow-2xl flex items-center justify-center shrink-0 lg:shrink aspect-video lg:aspect-auto min-h-0">
             <div className="absolute inset-0 w-full h-full">
                 {isLogged ? (
-                    <NativeStreamPlayer streamSid={streamSid} streamPassword={streamPassword} channel={STREAM_CHANNEL} usePatreon={usePatreon} t={t} />
+                    <NativeStreamPlayer streamSid={streamSid} streamPassword={streamPassword} channel={selectedChannel} usePatreon={usePatreon} t={t} />
                 ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center bg-neutral-900/80 backdrop-blur-md relative z-10">
                         <div className="bg-[#5865F2]/20 p-4 md:p-6 rounded-full mb-4 md:mb-6 border border-[#5865F2]/30 shadow-[0_0_30px_rgba(88,101,242,0.3)]">
@@ -148,15 +148,34 @@ export default function Live({ appLang }) {
                             <CheckCircle size={32} className="sm:w-10 sm:h-10 text-green-500" />
                         </div>
                         <h3 className="text-lg sm:text-xl md:text-2xl font-black text-white mb-1 sm:mb-2 shrink-0">{t.acceso_concedido}</h3>
-                        <p className="text-gray-400 text-[10px] sm:text-[11px] md:text-xs mb-3 sm:mb-6 leading-snug shrink-0">{t.credenciales_inyectadas}</p>
+                        <p className="text-gray-400 text-[10px] sm:text-[11px] md:text-xs mb-3 sm:mb-4 leading-snug shrink-0">{t.credenciales_inyectadas}</p>
 
-                        <div className="w-full bg-black/40 border border-white/10 rounded-xl p-3 sm:p-4 md:p-5 mb-3 sm:mb-6 shadow-inner shrink-0 mt-auto">
+                        <div className="w-full bg-black/40 border border-white/10 rounded-xl p-3 sm:p-4 md:p-5 mb-3 sm:mb-4 shadow-inner shrink-0 mt-auto">
+                            <span className="text-[9px] md:text-[11px] text-gray-400 uppercase tracking-widest font-bold flex items-center justify-center gap-2 mb-3 sm:mb-4">
+                                <MonitorPlay size={14} className="text-[#e5a00d]" /> Seleccionar Emisión
+                            </span>
+                            <div className="flex bg-[#141414] rounded-lg relative border border-white/5 overflow-hidden">
+                                <select 
+                                    value={selectedChannel} 
+                                    onChange={(e) => setSelectedChannel(e.target.value)}
+                                    className="bg-transparent text-gray-300 font-semibold text-[11px] sm:text-xs rounded-lg pl-3 pr-8 py-2.5 sm:py-3 outline-none w-full appearance-none cursor-pointer focus:text-white"
+                                >
+                                    <option value={STREAM_CHANNEL}>Canal Principal (Requiere Pass)</option>
+                                    <option value={`${STREAM_CHANNEL}_1`}>Canal Secundario (Sin Pass)</option>
+                                </select>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                    <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="w-full bg-black/40 border border-white/10 rounded-xl p-3 sm:p-4 md:p-5 mb-3 sm:mb-6 shadow-inner shrink-0">
                             <span className="text-[9px] md:text-[11px] text-gray-400 uppercase tracking-widest font-bold flex items-center justify-center gap-2 mb-3 sm:mb-4">
                                 <Server size={14} className="text-[#e5a00d]" /> {t.selecciona_servidor}
                             </span>
                             <div className="flex bg-[#141414] rounded-lg p-1.5 border border-white/5 relative">
-                                <button onClick={() => setUsePatreon(true)} disabled={!streamSid} className={`flex-1 py-2 sm:py-2.5 text-xs rounded-md transition-all duration-300 z-10 ${usePatreon ? 'bg-[#e5a00d] text-black font-black' : 'text-gray-400 hover:text-white font-semibold'} ${!streamSid ? 'opacity-30 cursor-not-allowed' : ''}`}>{t.serv_patreon}</button>
-                                <button onClick={() => setUsePatreon(false)} className={`flex-1 py-2 sm:py-2.5 text-xs rounded-md transition-all duration-300 z-10 ${!usePatreon ? 'bg-neutral-700 text-white font-black' : 'text-gray-400 hover:text-white font-semibold'}`}>{t.serv_normal}</button>
+                                <button onClick={() => setUsePatreon(true)} disabled={!streamSid} className={`flex-1 py-2 sm:py-2.5 text-[10px] sm:text-xs rounded-md transition-all duration-300 z-10 ${usePatreon ? 'bg-[#e5a00d] text-black font-black' : 'text-gray-400 hover:text-white font-semibold'} ${!streamSid ? 'opacity-30 cursor-not-allowed' : ''}`}>{t.serv_patreon}</button>
+                                <button onClick={() => setUsePatreon(false)} className={`flex-1 py-2 sm:py-2.5 text-[10px] sm:text-xs rounded-md transition-all duration-300 z-10 ${!usePatreon ? 'bg-neutral-700 text-white font-black' : 'text-gray-400 hover:text-white font-semibold'}`}>{t.serv_normal}</button>
                             </div>
                             {!streamSid && (
                                 <p className="text-[9px] text-red-400/80 mt-2 sm:mt-3 font-medium flex items-center justify-center gap-1"><AlertTriangle size={10} /> {t.servidor_no_disp}</p>
