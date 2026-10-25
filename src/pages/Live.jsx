@@ -106,16 +106,16 @@ export default function Live({ appLang }) {
   const discordLoginUrl = "https://discord.com/oauth2/authorize?client_id=1475601631977406605&response_type=code&redirect_uri=https%3A%2F%2Felppstrmstv.pages.dev%2F%3Ftab%3Ddirectos&scope=identify";
 
   return (
-    <div className="flex-1 mt-[7.5rem] md:mt-[5rem] px-4 md:px-12 flex flex-col lg:flex-row gap-3 md:gap-6 pb-2 md:pb-6 w-full h-[calc(100vh-8rem)] min-h-0 animate-in fade-in duration-500">
+    <div className="flex-1 mt-[7.5rem] md:mt-[5rem] px-4 md:px-12 flex flex-col lg:flex-row gap-3 md:gap-6 pb-2 md:pb-6 w-full min-h-[calc(100vh-8rem)] lg:h-[calc(100vh-8rem)] animate-in fade-in duration-500">
         
-        <div className="w-full flex-1 bg-black rounded-xl overflow-hidden border border-white/10 relative shadow-2xl flex items-center justify-center shrink-0 lg:shrink aspect-video lg:aspect-auto min-h-0">
+        <div className="w-full flex-1 bg-black rounded-xl overflow-hidden border border-white/10 relative shadow-2xl flex items-center justify-center shrink-0 lg:shrink aspect-video lg:aspect-auto min-h-[250px] lg:min-h-0">
             <div className="absolute inset-0 w-full h-full">
                 {isLogged ? (
                     <NativeStreamPlayer 
-                        streamSid={selectedChannel === STREAM_CHANNEL ? streamSid : null} 
+                        streamSid={streamSid} 
                         streamPassword={selectedChannel === STREAM_CHANNEL ? streamPassword : ""} 
                         channel={selectedChannel} 
-                        usePatreon={selectedChannel === STREAM_CHANNEL ? usePatreon : false} 
+                        usePatreon={usePatreon} 
                         t={t} 
                     />
                 ) : (
@@ -166,8 +166,8 @@ export default function Live({ appLang }) {
                                     onChange={(e) => setSelectedChannel(e.target.value)}
                                     className="bg-transparent text-gray-300 font-semibold text-[11px] sm:text-xs rounded-lg pl-3 pr-8 py-2.5 sm:py-3 outline-none w-full appearance-none cursor-pointer focus:text-white"
                                 >
-                                    <option value={STREAM_CHANNEL}>Canal Principal (Requiere Pass)</option>
-                                    <option value={`${STREAM_CHANNEL}_1`}>Canal Secundario (Sin Pass)</option>
+                                    <option value={STREAM_CHANNEL} className="bg-[#1a1a1c] text-white">Canal Principal (Requiere Pass)</option>
+                                    <option value={`${STREAM_CHANNEL}_1`} className="bg-[#1a1a1c] text-white">Canal Secundario (Sin Pass)</option>
                                 </select>
                                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                                     <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
