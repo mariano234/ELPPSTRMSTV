@@ -190,6 +190,21 @@ test('the existing private Discord message is an optional server-only credential
   assert.equal((await (await f.call(session, '/api/session', { cookie })).json()).premium, false);
 });
 
+test('login on a deployment URL returns to the configured site before issuing OAuth state', async () => {
+  const deployment = 'https://0f0bf402.elppstrmstv.pages.dev';
+  const alias = 'https://directos-seguros.elppstrmstv.pages.dev';
+  const env = { LIVE_ORIGIN: alias };
+  const request = new Request(`${deployment}/api/auth/discord`, { headers: { 'Sec-Fetch-Site': 'same-origin' } });
+  const response = await login({ request, env });
+
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get('Location'), `${alias}/directos`);
+  assert.equal(response.headers.has('Set-Cookie'), false);
+
+  const crossSite = new Request(`${alias}/api/auth/discord`, { headers: { 'Sec-Fetch-Site': 'cross-site' } });
+  assert.equal((await login({ request: crossSite, env })).status, 403);
+});
+
 test('OAuth state is bound to its browser cookie, expires and is consumed once', async t => {
   const f = fixture(t);
   const a = await f.begin();

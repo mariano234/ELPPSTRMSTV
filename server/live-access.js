@@ -68,9 +68,10 @@ function discordRedirect(env) {
 export async function startLogin(context) {
   const { request, env } = context;
   const origin = appOrigin(env);
-  if (new URL(request.url).origin !== origin || request.headers.get('Sec-Fetch-Site') === 'cross-site') {
+  if (request.headers.get('Sec-Fetch-Site') === 'cross-site') {
     throw new LiveError(403, 'Abre Directos para iniciar sesión.');
   }
+  if (new URL(request.url).origin !== origin) return redirect(`${origin}/directos`);
   if (!env.CLIENT_ID || !env.CLIENT_SECRET) throw new LiveError(503, 'El acceso con Discord requiere configuración.');
   discordConfig(env);
   const now = Date.now();
