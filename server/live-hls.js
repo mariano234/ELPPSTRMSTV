@@ -14,8 +14,11 @@ function allowedUrl(value, env, base) {
   let url;
   try { url = new URL(value, base); } catch { throw new LiveError(502, 'AngelThump devolvió una dirección de vídeo inválida.'); }
   const extra = (env.ANGELTHUMP_MEDIA_HOSTS || '').split(',').map(host => host.trim().toLowerCase());
-  if (url.protocol !== 'https:' || url.username || url.password || url.port || ![...HOSTS, ...extra].includes(url.hostname)) {
+  if (url.protocol !== 'https:' || url.username || url.password || url.port) {
     throw new LiveError(502, 'El origen de este recurso de vídeo no está autorizado.');
+  }
+  if (![...HOSTS, ...extra].includes(url.hostname)) {
+    throw new LiveError(502, `El servidor de vídeo ${url.hostname.slice(0, 160)} no está autorizado.`);
   }
   return url;
 }
