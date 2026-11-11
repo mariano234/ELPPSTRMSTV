@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AlertTriangle } from 'lucide-react';
 import { variantHeight } from '../../shared/hls-quality';
 import { requestPlayback, revokePlayback } from '../lib/live';
+import { addLiveTimeline } from '../lib/liveTimeline';
 import CastButton from './CastButton';
 import 'plyr/dist/plyr.css';
 import playerIcons from 'plyr/dist/plyr.svg';
@@ -62,7 +63,8 @@ export default function NativeStreamPlayer({ channel, mode, t, onAccessLost, onS
         const video = document.createElement('video');
         const native = video.canPlayType('application/vnd.apple.mpegurl');
         const agent = navigator.userAgent;
-        const desktopChromium = /Windows NT|Macintosh|X11/.test(agent) && /\b(?:Chrome|Chromium|Edg)\//.test(agent);
+        const android = /Android/i.test(agent) || navigator.userAgentData?.platform === 'Android';
+        const desktopChromium = !android && /Windows NT|Macintosh|X11/.test(agent) && /\b(?:Chrome|Chromium|Edg)\//.test(agent);
         const preferNative = native && !desktopChromium;
         const [{ default: Plyr }, hlsModule] = await Promise.all([
           import('plyr'), preferNative ? null : import('hls.js'),
@@ -74,7 +76,7 @@ export default function NativeStreamPlayer({ channel, mode, t, onAccessLost, onS
         video.className = 'w-full h-full';
         container.replaceChildren(video);
         const options = {
-          controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'settings', 'pip', 'airplay', 'fullscreen'],
+          controls: ['play-large', 'play', ...(android ? [] : ['progress', 'current-time']), 'mute', 'settings', 'pip', 'airplay', 'fullscreen'],
           settings: [], storage: { enabled: false }, autoplay: true, playsinline: true,
           iconUrl: playerIcons,
           fullscreen: { container: '.stream-player' },
@@ -99,6 +101,7 @@ export default function NativeStreamPlayer({ channel, mode, t, onAccessLost, onS
             playerRef.current = player;
             const controls = container.querySelector('.plyr__controls');
             if (controls) {
+              if (android) addLiveTimeline(controls, video, controller.signal);
               const castSlot = document.createElement('div');
               castSlot.className = 'plyr__controls__item stream-cast';
               controls.insertBefore(castSlot, controls.querySelector('[data-plyr="fullscreen"]'));
@@ -132,7 +135,7 @@ export default function NativeStreamPlayer({ channel, mode, t, onAccessLost, onS
           retryTimer = setTimeout(() => fail('El directo no responde. Comprueba la conexión y vuelve a intentarlo.'), 20000);
           video.src = new URL(source, window.location.origin).href;
         } else if (Hls?.isSupported()) {
-          hls = new Hls();
+          hls = new Hls({ liveDurationInfinity: android });
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
             if (player) return;
             const heights = [...new Set(hls.levels.map(level => level.height).filter(Boolean))];

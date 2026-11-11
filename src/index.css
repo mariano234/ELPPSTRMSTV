@@ -25,6 +25,7 @@ body {
 .stream-player .plyr { width: 100%; height: 100%; }
 .stream-player .plyr__video-wrapper { height: 100%; }
 .stream-player .plyr video { width: 100%; height: 100%; object-fit: contain; }
+.stream-player .stream-live-seek { touch-action: none; }
 .stream-cast { position: relative; display: flex; flex: 0 0 auto; }
 .stream-cast .stream-cast__button svg { fill: none; }
 .stream-cast__button[aria-pressed="true"] { color: var(--plyr-color-main); }

@@ -327,6 +327,47 @@ test('the mobile native player offers quality and sends that resolution to Cast'
   await expect.poll(() => page.evaluate(() => window.__castMetrics.loads.map(media => new URL(media.contentId).searchParams.get('quality')))).toEqual(['360', null]);
 });
 
+test.describe('Android live timeline', () => {
+  test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+
+  test('touch seeks inside the moving live window', async ({ page }) => {
+    await fixtures(page, { premium: true });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'userAgent', { value: 'Mozilla/5.0 (Linux; Android 15) Chrome/130.0.0.0 Mobile' });
+      window.liveWindow = [100, 140];
+      let currentTime = 96;
+      Object.defineProperties(HTMLMediaElement.prototype, {
+        currentTime: { get: () => currentTime, set: value => { currentTime = value; } },
+        seekable: { get: () => ({ length: window.liveWindow.length ? 1 : 0, start: () => window.liveWindow[0], end: () => window.liveWindow[1] }) },
+        duration: { get: () => Infinity },
+      });
+    });
+    await page.goto('https://ppstreams.test/directos');
+    const slider = page.getByRole('slider', { name: 'Posición en el directo' });
+    await expect(slider).toBeEnabled();
+    await expect(page.getByRole('timer')).toHaveText('00:00');
+    const box = await slider.boundingBox();
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+    const video = page.locator('video');
+    await expect.poll(() => video.evaluate(media => media.currentTime)).toBeCloseTo(120, 0);
+
+    await page.evaluate(() => {
+      window.liveWindow = [120, 160];
+      document.querySelector('video').dispatchEvent(new Event('timeupdate'));
+    });
+    await expect(page.getByRole('timer')).toHaveText('00:00');
+    await page.touchscreen.tap(box.x + box.width * 0.75, box.y + box.height / 2);
+    await expect.poll(() => video.evaluate(media => media.currentTime)).toBeGreaterThan(145);
+    await expect.poll(() => video.evaluate(media => media.currentTime)).toBeLessThan(155);
+
+    await page.evaluate(() => {
+      window.liveWindow = [];
+      document.querySelector('video').dispatchEvent(new Event('emptied'));
+    });
+    await expect(slider).toBeDisabled();
+  });
+});
+
 test('catalogue failures are visible and Retry loads the catalogue', async ({ page }) => {
   const errors = await fixtures(page, { libraryStatus: 503, authenticated: false });
   await page.goto('https://ppstreams.test/inicio');
