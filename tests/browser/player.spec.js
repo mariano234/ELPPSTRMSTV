@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 
+const androidAgent = 'Mozilla/5.0 (Linux; Android 15) Chrome/130.0.0.0 Mobile';
+
 async function fixtures(page, options = {}) {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -278,15 +280,22 @@ test('desktop Chromium uses HLS.js for Premium and shows the stream server error
   await expect(page.getByRole('alert')).toContainText('AngelThump no devolvió una lista HLS válida.');
 });
 
-for (const heights of [[720], [720, 360]]) {
-  test(`quality menu with ${heights.length} distinct HLS resolutions`, async ({ page }) => {
-    await fixtures(page, { premium: true, desktopHls: true });
+for (const [device, heights] of [['desktop', [720]], ['desktop', [720, 360]], ['Android', [720, 360]]]) {
+  test(`${device} quality menu with ${heights.length} distinct HLS resolutions`, async ({ page }) => {
+    const android = device === 'Android';
+    await fixtures(page, { premium: true, desktopHls: !android });
+    if (android) {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.addInitScript(agent => Object.defineProperty(navigator, 'userAgent', { value: agent }), androidAgent);
+    }
     const variants = heights.map(height =>
       `#EXT-X-STREAM-INF:BANDWIDTH=${height * 2000},RESOLUTION=${Math.round(height * 16 / 9)}x${height}\n${height}.m3u8`);
     await page.route('https://ppstreams.test/api/stream/*/index.m3u8', route => route.fulfill({
       contentType: 'application/x-mpegurl', body: `#EXTM3U\n${variants.join('\n')}\n`,
     }));
+    const manifest = page.waitForRequest(request => new URL(request.url()).pathname.endsWith('/index.m3u8'));
     await page.goto('https://ppstreams.test/directos');
+    expect((await manifest).resourceType()).toBe('xhr');
     await expect(page.getByRole('button', { name: /Enviar a TV/ })).toBeEnabled();
 
     const settings = page.getByRole('button', { name: 'Settings', exact: true });
@@ -330,22 +339,36 @@ test('the mobile native player offers quality and sends that resolution to Cast'
 test.describe('Android live timeline', () => {
   test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
 
-  test('touch seeks inside the moving live window', async ({ page }) => {
+  test('touch seeks inside the moving live window and the clock keeps advancing independently', async ({ page }) => {
     await fixtures(page, { premium: true });
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'userAgent', { value: 'Mozilla/5.0 (Linux; Android 15) Chrome/130.0.0.0 Mobile' });
-      window.liveWindow = [100, 140];
+    await page.addInitScript(agent => {
+      Object.defineProperty(navigator, 'userAgent', { value: agent });
+      Object.defineProperty(window, 'MediaSource', { value: undefined });
+      Object.defineProperty(window, 'ManagedMediaSource', { value: undefined });
+      window.liveWindow = [];
       let currentTime = 96;
       Object.defineProperties(HTMLMediaElement.prototype, {
         currentTime: { get: () => currentTime, set: value => { currentTime = value; } },
         seekable: { get: () => ({ length: window.liveWindow.length ? 1 : 0, start: () => window.liveWindow[0], end: () => window.liveWindow[1] }) },
         duration: { get: () => Infinity },
       });
-    });
+    }, androidAgent);
     await page.goto('https://ppstreams.test/directos');
     const slider = page.getByRole('slider', { name: 'Posición en el directo' });
+    const timer = page.getByRole('timer');
+    await expect(slider).toBeDisabled();
+    await page.evaluate(() => {
+      const video = document.querySelector('video');
+      video.currentTime = 98;
+      video.dispatchEvent(new Event('timeupdate'));
+    });
+    await expect(timer).toHaveText('00:02');
+    await page.evaluate(() => {
+      window.liveWindow = [100, 140];
+      document.querySelector('video').dispatchEvent(new Event('progress'));
+    });
     await expect(slider).toBeEnabled();
-    await expect(page.getByRole('timer')).toHaveText('00:00');
+    await expect(timer).toHaveText('00:02');
     const box = await slider.boundingBox();
     await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
     const video = page.locator('video');
@@ -355,16 +378,28 @@ test.describe('Android live timeline', () => {
       window.liveWindow = [120, 160];
       document.querySelector('video').dispatchEvent(new Event('timeupdate'));
     });
-    await expect(page.getByRole('timer')).toHaveText('00:00');
+    await expect(timer).toHaveText(/00:2[34]/);
     await page.touchscreen.tap(box.x + box.width * 0.75, box.y + box.height / 2);
     await expect.poll(() => video.evaluate(media => media.currentTime)).toBeGreaterThan(145);
     await expect.poll(() => video.evaluate(media => media.currentTime)).toBeLessThan(155);
 
     await page.evaluate(() => {
       window.liveWindow = [];
-      document.querySelector('video').dispatchEvent(new Event('emptied'));
+      const video = document.querySelector('video');
+      video.currentTime = 155;
+      video.dispatchEvent(new Event('timeupdate'));
     });
     await expect(slider).toBeDisabled();
+    await expect(timer).toHaveText('00:59');
+
+    await page.evaluate(() => {
+      const video = document.querySelector('video');
+      video.currentTime = 158;
+      video.dispatchEvent(new Event('timeupdate'));
+    });
+    await expect(timer).toHaveText('01:02');
+    await video.evaluate(media => media.dispatchEvent(new Event('emptied')));
+    await expect(timer).toHaveText('00:00');
   });
 });
 

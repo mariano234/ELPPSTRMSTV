@@ -65,7 +65,7 @@ export default function NativeStreamPlayer({ channel, mode, t, onAccessLost, onS
         const agent = navigator.userAgent;
         const android = /Android/i.test(agent) || navigator.userAgentData?.platform === 'Android';
         const desktopChromium = !android && /Windows NT|Macintosh|X11/.test(agent) && /\b(?:Chrome|Chromium|Edg)\//.test(agent);
-        const preferNative = native && !desktopChromium;
+        const preferNative = native && !desktopChromium && !android;
         const [{ default: Plyr }, hlsModule] = await Promise.all([
           import('plyr'), preferNative ? null : import('hls.js'),
         ]);

@@ -34,6 +34,9 @@ export function addLiveTimeline(controls, video, signal) {
   controls.insertBefore(time, mute);
 
   let editing = false;
+  // Keep the clock anchored to the media timeline as the live window slides.
+  let origin;
+  const elapsed = position => Math.max(0, position - (origin ?? position));
   const show = (percentage, elapsed) => {
     slider.style.setProperty('--value', `${percentage}%`);
     time.textContent = formatTime(elapsed);
@@ -41,18 +44,23 @@ export function addLiveTimeline(controls, video, signal) {
   };
   const sync = () => {
     const window = seekableWindow(video);
+    const position = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+    if (origin === undefined && (window || video.readyState >= 1 || position > 0)) {
+      origin = position || window?.start || 0;
+    }
+    if (window && window.start < origin) origin = window.start;
     slider.disabled = !window;
     if (editing && window) return;
-    const elapsed = window ? Math.max(0, Math.min(window.end - window.start, video.currentTime - window.start)) : 0;
-    const percentage = window ? 100 * elapsed / (window.end - window.start) : 0;
+    if (!window) editing = false;
+    const percentage = window ? Math.max(0, Math.min(100, 100 * (position - window.start) / (window.end - window.start))) : 0;
     slider.value = percentage;
-    show(percentage, elapsed);
+    show(percentage, elapsed(position));
   };
   slider.addEventListener('input', () => {
     const window = seekableWindow(video);
     if (!window) return;
     editing = true;
-    show(slider.valueAsNumber, (window.end - window.start) * slider.valueAsNumber / 100);
+    show(slider.valueAsNumber, elapsed(window.start + (window.end - window.start) * slider.valueAsNumber / 100));
   }, { signal });
   slider.addEventListener('change', () => {
     const window = seekableWindow(video);
@@ -73,8 +81,15 @@ export function addLiveTimeline(controls, video, signal) {
   for (const event of ['blur', 'pointercancel']) {
     slider.addEventListener(event, () => { editing = false; sync(); }, { signal });
   }
-  for (const event of ['timeupdate', 'progress', 'loadedmetadata', 'durationchange', 'seeking', 'seeked', 'emptied']) {
+  for (const event of ['timeupdate', 'progress', 'loadedmetadata', 'durationchange', 'playing', 'seeking', 'seeked']) {
     video.addEventListener(event, sync, { signal });
   }
+  video.addEventListener('emptied', () => {
+    origin = undefined;
+    editing = false;
+    slider.disabled = true;
+    slider.value = 0;
+    show(0, 0);
+  }, { signal });
   sync();
 }
