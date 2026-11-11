@@ -25,6 +25,30 @@ body {
 .stream-player .plyr { width: 100%; height: 100%; }
 .stream-player .plyr__video-wrapper { height: 100%; }
 .stream-player .plyr video { width: 100%; height: 100%; object-fit: contain; }
+.stream-cast { position: relative; display: flex; flex: 0 0 auto; }
+.stream-cast .stream-cast__button svg { fill: none; }
+.stream-cast__button[aria-pressed="true"] { color: var(--plyr-color-main); }
+.stream-cast__button--no-devices,
+.stream-cast__button:disabled { opacity: .6; }
+.stream-cast__hint {
+    position: absolute;
+    z-index: 2;
+    right: 0;
+    bottom: calc(100% + 6px);
+    width: max-content;
+    max-width: min(16rem, 55vw);
+    padding: .4rem .6rem;
+    border-radius: .35rem;
+    background: rgb(15 15 15 / 95%);
+    color: white;
+    font-size: .75rem;
+    line-height: 1.35;
+    text-align: left;
+    pointer-events: none;
+    visibility: hidden;
+}
+.stream-cast:hover .stream-cast__hint,
+.stream-cast:focus-within .stream-cast__hint { visibility: visible; }
 
 /* Scrollbars inmersivos PC */
 ::-webkit-scrollbar { width: 8px; }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Cast } from 'lucide-react';
 import { createCastRequest, detectHlsFormat, getCastMediaUrl, isCastCancellation, loadGoogleCast } from '../lib/cast';
 import { requestPlayback, revokePlayback } from '../lib/live';
@@ -16,6 +16,7 @@ export default function CastButton({ channel, mode, onConnected, onSessionRenewe
   const [castState, setCastState] = useState('INITIALIZING');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const hintId = useId();
   const lastLoad = useRef(null);
   const connectedCallback = useRef(onConnected);
   useEffect(() => { connectedCallback.current = onConnected; }, [onConnected]);
@@ -144,15 +145,18 @@ export default function CastButton({ channel, mode, onConnected, onSessionRenewe
   };
   const initializing = castState === 'INITIALIZING' || castState === 'CONNECTING';
   const label = connected ? 'Desconectar TV' : initializing ? 'Buscando TV…' : (t.enviar_tv || 'Enviar a TV');
+  const noDevices = castState === 'NO_DEVICES_AVAILABLE';
+  const hint = error || (busy ? 'Cargando en TV…' : noDevices
+    ? 'No se detecta ninguna TV. Comprueba la misma red Wi-Fi y los permisos de red local.'
+    : label);
   return (
-    <div className="absolute top-3 right-3 z-30 max-w-[85%] text-right">
+    <>
       <button type="button" onClick={handleClick} disabled={!context || initializing || busy}
-        aria-label={label} aria-pressed={connected} aria-busy={busy} title={label}
-        className={`inline-flex items-center gap-2 rounded-lg border border-white/20 bg-black/80 px-3 py-2 text-xs font-bold shadow-lg disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#e5a00d] ${connected ? 'text-[#e5a00d]' : 'text-white'}`}>
-        <Cast size={18} aria-hidden="true" /> {busy ? 'Cargando en TV…' : label}
+        aria-label={label} aria-describedby={hint === label ? undefined : hintId} aria-pressed={connected} aria-busy={busy}
+        className={`plyr__control stream-cast__button${noDevices ? ' stream-cast__button--no-devices' : ''}`}>
+        <Cast aria-hidden="true" />
       </button>
-      {castState === 'NO_DEVICES_AVAILABLE' && <p role="status" className="mt-1 rounded bg-black/85 p-2 text-xs text-gray-200">No se detecta ninguna TV. Comprueba la misma red Wi-Fi y los permisos de red local.</p>}
-      {error && <p role="alert" className="mt-1 rounded bg-black/90 p-2 text-xs text-red-300">{error}</p>}
-    </div>
+      <span id={hintId} role="tooltip" className="stream-cast__hint">{hint}</span>
+    </>
   );
 }

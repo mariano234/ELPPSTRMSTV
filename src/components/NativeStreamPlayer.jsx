@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle } from 'lucide-react';
 import { requestPlayback, revokePlayback } from '../lib/live';
 import CastButton from './CastButton';
@@ -71,7 +72,7 @@ export default function NativeStreamPlayer({ channel, mode, t, onAccessLost, onS
         video.className = 'w-full h-full';
         container.replaceChildren(video);
         const options = {
-          controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'settings', 'pip', 'airplay', 'fullscreen'],
+          controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'settings', 'pip', 'airplay', 'fullscreen'],
           settings: [], storage: { enabled: false }, autoplay: true,
           iconUrl: playerIcons,
           fullscreen: { container: '.stream-player' },
@@ -79,8 +80,17 @@ export default function NativeStreamPlayer({ channel, mode, t, onAccessLost, onS
         const ready = () => {
           if (!active) return;
           clearTimeout(retryTimer);
-          if (!player) { player = new Plyr(video, options); playerRef.current = player; }
-          setReadySource({ channel, mode });
+          if (!player) {
+            player = new Plyr(video, options);
+            playerRef.current = player;
+            const controls = container.querySelector('.plyr__controls');
+            if (controls) {
+              const castSlot = document.createElement('div');
+              castSlot.className = 'plyr__controls__item stream-cast';
+              controls.insertBefore(castSlot, controls.querySelector('[data-plyr="fullscreen"]'));
+              setReadySource({ channel, mode, castSlot });
+            }
+          }
           setStatus('');
           video.play().catch(() => { /* Autoplay may require a user gesture. */ });
         };
@@ -151,7 +161,10 @@ export default function NativeStreamPlayer({ channel, mode, t, onAccessLost, onS
   return (
     <div className="stream-player w-full h-full bg-black relative flex items-center justify-center">
       <div ref={containerRef} className="w-full h-full absolute inset-0 z-10" />
-      {readySource?.channel === channel && readySource.mode === mode && !error && <CastButton channel={channel} mode={mode} onConnected={pauseLocal} onSessionRenewed={onSessionRenewed} t={t} />}
+      {readySource?.channel === channel && readySource.mode === mode && !error && createPortal(
+        <CastButton channel={channel} mode={mode} onConnected={pauseLocal} onSessionRenewed={onSessionRenewed} t={t} />,
+        readySource.castSlot,
+      )}
       {status && !error && <div role="status" className="absolute inset-0 flex items-center justify-center bg-black/90 z-20 flex-col gap-4">
         <div className="w-10 h-10 border-4 border-[#e5a00d] border-t-transparent rounded-full animate-spin" />
         <span className="text-[#e5a00d] font-bold text-sm tracking-widest uppercase text-center px-4">{status}</span>

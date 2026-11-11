@@ -128,7 +128,16 @@ test('an already-loaded SDK connects, sends FMP4, pauses local playback and disc
     if (request.method() === 'DELETE') revoked.push(request.postDataJSON().grant);
   });
   await page.goto('https://ppstreams.test/directos');
-  await page.getByRole('button', { name: /Enviar a TV/ }).click();
+  const cast = page.locator('.plyr__controls').getByRole('button', { name: /Enviar a TV/ });
+  const hint = page.locator('.plyr__controls [role="tooltip"]').filter({ hasText: 'Enviar a TV' });
+  await expect(cast).toHaveText('');
+  await expect(page.locator('.stream-cast + [data-plyr="fullscreen"]')).toHaveCount(1);
+  await expect(hint).toBeHidden();
+  await cast.focus();
+  await expect(hint).toBeVisible();
+  await cast.blur();
+  await expect(hint).toBeHidden();
+  await cast.click();
   await expect.poll(() => page.evaluate(() => window.__castMetrics.loads.length)).toBe(1);
   await expect(page.getByRole('button', { name: 'Desconectar TV' })).toBeEnabled();
   const media = await page.evaluate(() => window.__castMetrics.loads[0]);
