@@ -105,7 +105,7 @@ export default function NativeStreamPlayer({ channel, mode, t, onAccessLost, onS
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
             if (player) return;
             const heights = [...new Set(hls.levels.map(level => level.height).filter(Boolean))];
-            if (heights.length) {
+            if (heights.length > 1) {
               options.settings = ['quality'];
               options.quality = {
                 default: 0, options: [0, ...heights], forced: true,

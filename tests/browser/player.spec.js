@@ -3,7 +3,10 @@ import { test, expect } from '@playwright/test';
 async function fixtures(page, options = {}) {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.addInitScript(({ sdk = 'ready', resumed = false, cancel = false, cacheFull = false }) => {
+  await page.addInitScript(({ sdk = 'ready', resumed = false, cancel = false, cacheFull = false, desktopHls = false }) => {
+    if (desktopHls) {
+      Object.defineProperty(navigator, 'userAgent', { value: navigator.userAgent.replace('HeadlessChrome/', 'Chrome/') });
+    }
     sessionStorage.setItem('stream_password', 'old-browser-password');
     sessionStorage.setItem('stream_sid', 'old-browser-sid');
     sessionStorage.setItem('stream_auth_time', Date.now().toString());
@@ -262,10 +265,7 @@ test('a premium member can choose Normal and sign out from Directos', async ({ p
 });
 
 test('desktop Chromium uses HLS.js for Premium and shows the stream server error', async ({ page }) => {
-  await fixtures(page, { premium: true });
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'userAgent', { value: navigator.userAgent.replace('HeadlessChrome/', 'Chrome/') });
-  });
+  await fixtures(page, { premium: true, desktopHls: true });
   await page.route('https://ppstreams.test/api/stream/*/index.m3u8', route => route.fulfill({
     status: 502, json: { error: 'AngelThump no devolvió una lista HLS válida.' },
   }));
@@ -276,6 +276,30 @@ test('desktop Chromium uses HLS.js for Premium and shows the stream server error
   expect((await request).resourceType()).toBe('xhr');
   await expect(page.getByRole('alert')).toContainText('AngelThump no devolvió una lista HLS válida.');
 });
+
+for (const heights of [[720], [720, 360]]) {
+  test(`quality menu with ${heights.length} distinct HLS resolutions`, async ({ page }) => {
+    await fixtures(page, { premium: true, desktopHls: true });
+    const variants = heights.map(height =>
+      `#EXT-X-STREAM-INF:BANDWIDTH=${height * 2000},RESOLUTION=${Math.round(height * 16 / 9)}x${height}\n${height}.m3u8`);
+    await page.route('https://ppstreams.test/api/stream/*/index.m3u8', route => route.fulfill({
+      contentType: 'application/x-mpegurl', body: `#EXTM3U\n${variants.join('\n')}\n`,
+    }));
+    await page.goto('https://ppstreams.test/directos');
+    await expect(page.getByRole('button', { name: /Enviar a TV/ })).toBeEnabled();
+
+    const settings = page.getByRole('button', { name: 'Settings', exact: true });
+    if (heights.length === 1) {
+      await expect(settings).toBeHidden();
+    } else {
+      await settings.click();
+      await page.getByRole('menuitem', { name: /Quality/ }).click();
+      await expect(page.getByRole('menuitemradio', { name: /Auto/ })).toBeVisible();
+      await expect(page.getByRole('menuitemradio', { name: /720p/ })).toBeVisible();
+      await expect(page.getByRole('menuitemradio', { name: /360p/ })).toBeVisible();
+    }
+  });
+}
 
 test('catalogue failures are visible and Retry loads the catalogue', async ({ page }) => {
   const errors = await fixtures(page, { libraryStatus: 503, authenticated: false });
