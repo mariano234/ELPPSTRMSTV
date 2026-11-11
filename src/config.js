@@ -1,4 +1,3 @@
-export const TMDB_API_KEY = "342815a2b6a677bbc29fd13a6e3c1c3a"; 
 export const SHEET_ID = "104RB6GK9_m_nzIakTU3MJLaDJPwt9fYmfHF3ikyixFE";
 export const CACHE_VERSION = "v2_multilang"; 
 export const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; 
@@ -178,7 +177,7 @@ export const UI_TRANSLATIONS = {
     descargar: 'NIRE LIBURUTEGIRA DESKARGATU', enlace_no_disp: 'ESTEKA EZ DAGO ESKURAGARRI',
     mas_saga: 'Saga honetako gehiago', titulos_similares: 'Gomendatutako antzeko tituluak',
     sin_descripcion: 'Ez dago deskribapenik eskuragarri.', sinc_biblio: 'Zure liburutegiarekin sinkronizatzen...',
-    calidad: 'Kalitatea', idiomas: 'Hizkuntzak', Urtea: 'Urtea', error_fallo: 'Ene, zerbaitek huts egin du',
+    calidad: 'Kalitatea', idiomas: 'Hizkuntzak', año: 'Urtea', error_fallo: 'Ene, zerbaitek huts egin du',
     proximamente: 'Laster...', prep_series: 'Telesailen katalogo osoa prestatzen ari gara plataforman integratzeko. Itzuli laster!',
     acceso_premium: 'Premium Sarbidea', pass_directo: 'Autentifikazioa Beharrezkoa',
     desc_directo: 'Zuzenekoa babestuta dago. Egiaztatu Discord zerbitzarian beharrezko rola duzula sartzeko.',

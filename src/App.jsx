@@ -1,26 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Catalog from './pages/Catalog';
-import Live from './pages/Live';
 import Upcoming from './pages/Upcoming';
+
+const Live = lazy(() => import('./pages/Live'));
 
 function RootRedirect() {
   const [searchParams] = useSearchParams();
   const tab = searchParams.get('tab');
-  const code = searchParams.get('code');
   
-  if (tab === 'directos' || code) {
-      return <Navigate to={`/directos${code ? `?code=${code}` : ''}`} replace />;
+  if (tab === 'directos' || searchParams.has('code')) {
+      return <Navigate to="/directos" replace />;
   }
   return <Navigate to="/inicio" replace />;
 }
 
 export default function App() {
-  const [appLang, setAppLang] = useState(localStorage.getItem('elpepestreams_lang') || 'es');
+  const [appLang, setAppLang] = useState(() => {
+    try { return localStorage.getItem('elpepestreams_lang') || 'es'; } catch { return 'es'; }
+  });
 
   useEffect(() => {
-    localStorage.setItem('elpepestreams_lang', appLang);
+    document.documentElement.lang = appLang;
+    try { localStorage.setItem('elpepestreams_lang', appLang); } catch { /* Storage is optional. */ }
   }, [appLang]);
 
   useEffect(() => {
@@ -45,7 +48,7 @@ export default function App() {
           <Route path="/inicio" element={<Catalog appLang={appLang} category="inicio" />} />
           <Route path="/pelis" element={<Catalog appLang={appLang} category="pelis" />} />
           <Route path="/series" element={<Upcoming appLang={appLang} />} />
-          <Route path="/directos" element={<Live appLang={appLang} />} />
+          <Route path="/directos" element={<Suspense fallback={<p role="status" className="pt-36 text-center">Cargando Directos…</p>}><Live appLang={appLang} /></Suspense>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
 

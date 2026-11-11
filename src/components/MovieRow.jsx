@@ -9,7 +9,7 @@ export default function MovieRow({ title, items, onSelect, onCategoryClick, onTi
   const [showArrows, setShowArrows] = useState(false);
   
   useEffect(() => {
-    if (eager) return;
+    if (eager || typeof IntersectionObserver === 'undefined') return;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -30,7 +30,7 @@ export default function MovieRow({ title, items, onSelect, onCategoryClick, onTi
       }
     };
 
-    if (isVisible) {
+    if (isVisible || eager || typeof IntersectionObserver === 'undefined') {
       checkArrows();
       window.addEventListener('resize', checkArrows);
       const timer = setTimeout(checkArrows, 100); 
@@ -39,7 +39,7 @@ export default function MovieRow({ title, items, onSelect, onCategoryClick, onTi
         clearTimeout(timer);
       };
     }
-  }, [isVisible, items]);
+  }, [isVisible, eager, items]);
 
   const scroll = (direction) => {
     if (rowRef.current) {
@@ -87,7 +87,7 @@ export default function MovieRow({ title, items, onSelect, onCategoryClick, onTi
         {(!isModal || onTitleClick) && <ChevronRight size={24} className="text-[#e5a00d] opacity-0 group-hover/row:opacity-100 transition-opacity" />}
       </h3>
       
-      {isVisible ? (
+      {(isVisible || eager || typeof IntersectionObserver === 'undefined') ? (
         <>
           {showArrows && (
             <button onClick={() => scroll('left')} className="absolute left-0 top-[50%] -translate-y-1/2 z-20 bg-black/80 hover:bg-[#e5a00d] text-white p-2 md:p-4 rounded-r-xl opacity-0 group-hover/row:opacity-100 transition-all hidden md:block backdrop-blur-md border-r border-y border-white/10">

@@ -32,7 +32,7 @@ export async function onRequest(context) {
 
         let cleanTitle = rawTitle.replace(/\(\d{4}\)/g, '').replace(/\[.*?\]/g, '').trim();
         let altTitle = cleanTitle.replace(/\s+[1-9]$/, '').trim(); 
-        let ultraCleanTitle = altTitle.replace(/[:\-]/g, ' ').replace(/\by\b/gi, ' ').replace(/\s+/g, ' ').trim();
+        let ultraCleanTitle = altTitle.replace(/[:-]/g, ' ').replace(/\by\b/gi, ' ').replace(/\s+/g, ' ').trim();
         
         let matchedId = null;
         let isCollectionMatch = false;

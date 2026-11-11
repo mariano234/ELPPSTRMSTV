@@ -21,6 +21,11 @@ body {
     overflow-x: hidden;
 }
 
+.stream-player { --plyr-color-main: #e5a00d; }
+.stream-player .plyr { width: 100%; height: 100%; }
+.stream-player .plyr__video-wrapper { height: 100%; }
+.stream-player .plyr video { width: 100%; height: 100%; object-fit: contain; }
+
 /* Scrollbars inmersivos PC */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }

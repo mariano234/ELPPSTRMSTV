@@ -1,0 +1,5 @@
+/directos
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://www.gstatic.com; frame-src https://www.gstatic.com https://cast.google.com; media-src 'self' blob:; worker-src 'self' blob:; base-uri 'self'; object-src 'none'; frame-ancestors 'none'

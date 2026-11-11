@@ -1,3 +1,5 @@
+import { parseCSV } from '../../shared/csv.js';
+
 export async function onRequest(context) {
     const SHEET_ID = "104RB6GK9_m_nzIakTU3MJLaDJPwt9fYmfHF3ikyixFE";
     const cache = caches.default;
@@ -14,22 +16,8 @@ export async function onRequest(context) {
 
         const csvText = await res.text();
 
-        const parseCSV = (text) => {
-            const rows = []; let row = []; let current = ''; let inQuotes = false;
-            for (let i = 0; i < text.length; i++) {
-                const char = text[i];
-                if (char === '"' && text[i + 1] === '"') { current += '"'; i++; }
-                else if (char === '"') { inQuotes = !inQuotes; }
-                else if (char === ',' && !inQuotes) { row.push(current); current = ''; }
-                else if (char === '\n' && !inQuotes) { row.push(current); rows.push(row); row = []; current = ''; }
-                else if (char !== '\r') { current += char; }
-            }
-            if (current !== '' || text[text.length - 1] === ',') row.push(current);
-            if (row.length > 0) rows.push(row);
-            return rows;
-        };
-
         const parsedData = parseCSV(csvText);
+        if (!parsedData.length) throw new Error('La biblioteca no contiene datos.');
         const headerRowIdx = parsedData.findIndex(row => row.some(c => typeof c === 'string' && (c.toLowerCase().includes('título') || c.toLowerCase().includes('title'))));
         const validHeaderIdx = headerRowIdx !== -1 ? headerRowIdx : 0;
 
@@ -37,6 +25,7 @@ export async function onRequest(context) {
         const getIdx = (keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
 
         const idxTitle = getIdx(['titulo', 'title']);
+        if (idxTitle === -1) throw new Error('No se encuentra la columna de títulos.');
         const idxYear = getIdx(['ano', 'year', 'año']);
         const idxLang = getIdx(['idioma', 'lenguaje']);
         const idxQual = getIdx(['calidad']);

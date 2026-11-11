@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useEffectEvent, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Film, Info, Grid, List as ListIcon, Filter, Monitor, Globe, Calendar, ArrowDownWideNarrow, X, AlertTriangle, Layers, Star, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { UI_TRANSLATIONS, SHEET_ID, CACHE_VERSION, CACHE_TTL } from '../config';
 import { parseCSV, formatVideoQuality, translateLangs, fetchTMDB, shuffleArray } from '../utils';
@@ -16,9 +16,8 @@ const getHash = (str) => {
     return hash;
 };
 
-export default function Catalog({ appLang, category }) {
+export default function Catalog({ appLang }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const t = UI_TRANSLATIONS[appLang] || UI_TRANSLATIONS['es'];
 
   const searchQuery = searchParams.get('q') || "";
@@ -31,25 +30,38 @@ export default function Catalog({ appLang, category }) {
   const [error, setError] = useState(null);
   const [heroItem, setHeroItem] = useState(null);
   
-  const [selectedItem, setSelectedItem] = useState(null);
+  const selectedItem = useMemo(() => items.find(item => item.id === paramV) || sagas.find(saga => saga.id === paramV) || null, [paramV, items, sagas]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   
   const [viewMode, setViewMode] = useState('grid');
-  const [visibleCount, setVisibleCount] = useState(100);
+  const [pagination, setPagination] = useState({ key: '', count: 100 });
+  const [reloadAttempt, setReloadAttempt] = useState(0);
   const [sortBy, setSortBy] = useState('default');
   const [filterGenres, setFilterGenres] = useState([]);
   const [filterQualities, setFilterQualities] = useState([]);
   const [filterLanguages, setFilterLanguages] = useState([]);
   const [filterYears, setFilterYears] = useState([]);
+  const displayKey = JSON.stringify([selectedCategory?.title, searchQuery, sortBy, filterGenres, filterQualities, filterLanguages, filterYears]);
+  const visibleCount = pagination.key === displayKey ? pagination.count : 100;
+  const finishRefresh = useEffectEvent(() => {
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous);
+      next.delete('refresh');
+      return next;
+    }, { replace: true });
+  });
 
   useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
     const loadContent = async () => {
+      let cachedData = null;
       setLoading(true);
       setError(null);
       try {
         const cacheKeyName = `plex_library_full_cache_${appLang}`;
-        const cachedRaw = localStorage.getItem(cacheKeyName);
-        let cachedData = null;
+        let cachedRaw = null;
+        try { cachedRaw = localStorage.getItem(cacheKeyName); } catch { /* Cache storage is optional. */ }
 
         if (cachedRaw && !isRefresh) {
             try {
@@ -57,12 +69,14 @@ export default function Catalog({ appLang, category }) {
                 if (parsed.version === CACHE_VERSION) {
                     cachedData = parsed;
                 }
-            } catch(e) {}
+            } catch { /* Ignore an invalid cached catalogue. */ }
         }
 
         // 1. Descargamos el texto crudo del Excel siempre (es ultrarrápido y no consume recursos)
-        const response = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&_t=${Date.now()}`, { cache: 'no-store' });
+        const response = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&_t=${Date.now()}`, { cache: 'no-store', signal: controller.signal });
+        if (!response.ok) throw new Error('No se pudo cargar la biblioteca. Comprueba tu conexión.');
         const csvText = await response.text();
+        if (!active) return;
         const currentHash = getHash(csvText);
 
         // 2. SINCRONIZACIÓN INTELIGENTE: Si el Excel es idéntico a la última vez y la caché sirve, cargamos al instante
@@ -80,12 +94,14 @@ export default function Catalog({ appLang, category }) {
 
         // 3. Si hay cambios en el Excel (Hash distinto) o forzamos refresh, procesamos los datos
         const parsedData = parseCSV(csvText);
+        if (!parsedData.length) throw new Error('La biblioteca no contiene datos.');
         const headerRowIdx = parsedData.findIndex(row => row.some(c => typeof c === 'string' && (c.toLowerCase().includes('título') || c.toLowerCase().includes('title'))));
         const validHeaderIdx = headerRowIdx !== -1 ? headerRowIdx : 0;
         const headers = parsedData[validHeaderIdx].map(h => (h || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
         const getIdx = (keys) => headers.findIndex(h => keys.some(k => h.includes(k)));
         
         const idxTitle = getIdx(['titulo', 'title']);
+        if (idxTitle === -1) throw new Error('No se encuentra la columna de títulos en la biblioteca.');
         const idxYear = getIdx(['ano', 'year', 'año']);
         const idxLang = getIdx(['idioma', 'lenguaje']);
         const idxQual = getIdx(['calidad']);
@@ -114,7 +130,7 @@ export default function Catalog({ appLang, category }) {
             if (!finalLink || finalLink.toLowerCase() === 'link' || finalLink.toLowerCase() === 'lnkf') finalLink = '#';
             else if (finalLink !== '#' && !finalLink.startsWith('http')) finalLink = 'https://' + finalLink;
 
-            const tmdb = await fetchTMDB(title, year, appLang, isRefresh);
+            const tmdb = await fetchTMDB(title, year, appLang, isRefresh, 2, controller.signal);
             
             return {
               id: `item-${i + idx}`,
@@ -123,7 +139,7 @@ export default function Catalog({ appLang, category }) {
               displayTitle: tmdb?.tmdbTitle || title, 
               year: tmdb?.year || year,
               description: tmdb?.overview || translatedNoDesc,
-              image: tmdb?.poster || `https://via.placeholder.com/500x750/1a1a1c/e5a00d?text=${encodeURIComponent(title)}`,
+              image: tmdb?.poster || '/poster-placeholder.svg',
               backdrop: tmdb?.backdrop || tmdb?.poster,
               videoQuality: formatVideoQuality(idxQual !== -1 ? row[idxQual] : ''),
               language: idxLang !== -1 ? translateLangs(row[idxLang], appLang) : 'N/A',
@@ -133,6 +149,7 @@ export default function Catalog({ appLang, category }) {
               rating: tmdb?.rating || 'N/A'
             };
           }));
+          if (!active) return;
           enriched.push(...chunkEnriched);
         }
 
@@ -168,45 +185,39 @@ export default function Catalog({ appLang, category }) {
         setLoading(false);
 
         // Guardamos la nueva caché, incluyendo el HASH para compararlo en el futuro
-        localStorage.setItem(cacheKeyName, JSON.stringify({ 
+        try { localStorage.setItem(cacheKeyName, JSON.stringify({
             version: CACHE_VERSION, 
             timestamp: Date.now(), 
             hash: currentHash,
             items: enriched, 
-            sagas: sagasArray 
-        }));
+            sagas: sagasArray
+        })); } catch { /* A full cache must not hide a loaded catalogue. */ }
         
         if (isRefresh) {
-            searchParams.delete('refresh');
-            setSearchParams(searchParams, { replace: true });
+            finishRefresh();
         }
-      } catch (err) { setError(err.message); setLoading(false); }
+      } catch (err) {
+        if (!active || controller.signal.aborted) return;
+        if (cachedData?.items?.length) {
+          setItems(cachedData.items);
+          setSagas(cachedData.sagas || []);
+          setHeroItem(cachedData.items[0]);
+        }
+        setError(err.message);
+        setLoading(false);
+      }
     };
 
     loadContent();
-  }, [appLang, isRefresh]); 
-
-  useEffect(() => {
-    setVisibleCount(100);
-  }, [selectedCategory, searchQuery, sortBy, filterGenres, filterQualities, filterLanguages, filterYears]);
-
-  useEffect(() => {
-      if (paramV && items.length > 0) {
-          const found = items.find(i => i.id === paramV) || sagas.find(s => s.id === paramV);
-          if (found) setSelectedItem(found);
-      } else if (!paramV) {
-          setSelectedItem(null);
-      }
-  }, [paramV, items, sagas]);
+    return () => { active = false; controller.abort(); };
+  }, [appLang, isRefresh, t.sin_descripcion, reloadAttempt]);
 
   const openModal = (item) => {
-      setSelectedItem(item);
       searchParams.set('v', item.id);
       setSearchParams(searchParams, { replace: true });
   };
 
   const closeModal = () => {
-      setSelectedItem(null);
       searchParams.delete('v');
       setSearchParams(searchParams, { replace: true });
   };
@@ -248,18 +259,15 @@ export default function Catalog({ appLang, category }) {
     return [...cats, ...shuffleArray(genreCats)];
   }, [items, sagas, searchQuery, t]);
 
-  const rawDisplayItems = searchQuery 
-    ? items.filter(i => 
-        i.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const rawDisplayItems = useMemo(() => searchQuery
+    ? items.filter(i =>
+        i.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (i.displayTitle && i.displayTitle.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        i.description.toLowerCase().includes(searchQuery.toLowerCase())
+        (i.description || '').toLowerCase().includes(searchQuery.toLowerCase())
       )
-    : (selectedCategory ? selectedCategory.items : []);
+    : (selectedCategory ? selectedCategory.items : []), [searchQuery, items, selectedCategory]);
 
   const availableGenres = useMemo(() => Array.from(new Set(rawDisplayItems.flatMap(i => i.genres || []))).filter(g => g && g.toLowerCase() !== 'saga').sort(), [rawDisplayItems]);
-  const availableQualities = useMemo(() => Array.from(new Set(rawDisplayItems.map(i => i.videoQuality).filter(q => q && q !== 'N/A'))).sort((a, b) => b.localeCompare(a)), [rawDisplayItems]);
-  const availableLanguages = useMemo(() => Array.from(new Set(rawDisplayItems.flatMap(i => i.language ? i.language.split(',').map(l => l.trim()) : []).filter(l => l !== 'N/A'))).sort(), [rawDisplayItems]);
-  const availableYears = useMemo(() => Array.from(new Set(rawDisplayItems.map(i => i.year).filter(y => y && y !== '?' && y !== 'N/A'))).sort((a, b) => parseInt(b) - parseInt(a)), [rawDisplayItems]);
 
   const processedDisplayItems = useMemo(() => {
     let result = [...rawDisplayItems];
@@ -382,9 +390,15 @@ export default function Catalog({ appLang, category }) {
 
   return (
     <div className="animate-in fade-in duration-300">
+        {error && <div role="alert" className="mx-4 mt-36 rounded-xl border border-red-500/30 bg-neutral-900 p-6 text-center md:mx-12">
+          <h2 className="mb-2 text-lg font-bold text-red-400">{t.error_fallo}</h2>
+          <p className="text-sm text-gray-300">{error}</p>
+          <button type="button" onClick={() => setReloadAttempt(value => value + 1)} className="mt-4 rounded-lg bg-[#e5a00d] px-4 py-2 font-bold text-black">Reintentar</button>
+        </div>}
+        {!items.length && !error && <p role="status" className="pt-36 text-center text-gray-400">La biblioteca todavía no contiene películas.</p>}
         {heroItem && !searchQuery && !selectedCategory && (
         <div className="relative h-[65vh] md:h-[85vh] w-full mb-6 md:mb-12 overflow-hidden">
-            <img src={heroItem.backdrop} className="w-full h-full object-cover object-top sm:object-center opacity-90 md:opacity-100" alt="Hero Banner" />
+            <img src={heroItem.backdrop || heroItem.image} className="w-full h-full object-cover object-top sm:object-center opacity-90 md:opacity-100" alt="Hero Banner" />
             <div className="absolute inset-0 bg-gradient-to-r from-[#0f0f0f] via-[#0f0f0f]/80 md:via-[#0f0f0f]/60 to-transparent"></div>
             <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f0f] via-[#0f0f0f]/20 md:via-transparent to-transparent"></div>
             
@@ -424,7 +438,7 @@ export default function Catalog({ appLang, category }) {
                     {renderGridOrList(processedDisplayItems.slice(0, visibleCount))}
                     {processedDisplayItems.length > visibleCount && (
                     <div className="flex justify-center mt-10">
-                        <button onClick={() => setVisibleCount(v => v + 100)} className="bg-neutral-800 hover:bg-[#e5a00d] text-white hover:text-black font-bold py-3 px-8 rounded-full border border-white/10 hover:scale-105 text-sm md:text-base">
+                        <button onClick={() => setPagination({ key: displayKey, count: visibleCount + 100 })} className="bg-neutral-800 hover:bg-[#e5a00d] text-white hover:text-black font-bold py-3 px-8 rounded-full border border-white/10 hover:scale-105 text-sm md:text-base">
                             {t.cargar_mas}
                         </button>
                     </div>

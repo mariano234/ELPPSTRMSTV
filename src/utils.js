@@ -1,39 +1,30 @@
+import { API_BASE } from './config';
+export { parseCSV } from '../shared/csv.js';
+
 // ==========================================
 // src/utils.js
 // ==========================================
 
-export const extractIdentifier = (sid) => {
-    if (!sid) return null;
+export const fetchTMDB = async (title, year, appLang, refresh = false, retries = 2, signal) => {
     try {
-        const decoded = decodeURIComponent(sid);
-        if (decoded.startsWith('s:')) {
-            return decoded.split(':')[1].split('.')[0];
-        }
-        return decoded;
-    } catch (e) {
-        return null;
-    }
-};
-
-export const fetchTMDB = async (title, year, appLang, refresh = false, retries = 2) => {
-    try {
-        let url = `/api/tmdb?title=${encodeURIComponent(title)}&year=${encodeURIComponent(year)}&lang=${appLang}`;
+        let url = `${API_BASE}/tmdb?title=${encodeURIComponent(title)}&year=${encodeURIComponent(year)}&lang=${appLang}`;
         if (refresh) url += `&refresh=true`;
         
-        const res = await fetch(url);
+        const res = await fetch(url, { signal });
         // Si hay error (ej. límite de Cloudflare), reintentamos tras medio segundo
         if (!res.ok) {
             if (retries > 0) {
                 await new Promise(resolve => setTimeout(resolve, 500));
-                return fetchTMDB(title, year, appLang, refresh, retries - 1);
+                return fetchTMDB(title, year, appLang, refresh, retries - 1, signal);
             }
             return null;
         }
         return await res.json();
     } catch (error) {
+        if (signal?.aborted) throw error;
         if (retries > 0) {
             await new Promise(resolve => setTimeout(resolve, 500));
-            return fetchTMDB(title, year, appLang, refresh, retries - 1);
+            return fetchTMDB(title, year, appLang, refresh, retries - 1, signal);
         }
         console.error("Error al obtener metadatos de TMDB:", error);
         return null;
@@ -62,22 +53,7 @@ export const formatVideoQuality = (quality) => {
     return q; 
 };
 
-export const translateLangs = (lang, appLang) => {
+export const translateLangs = (lang) => {
     if (!lang) return 'N/A';
     return lang.toString().trim();
-};
-
-export const parseCSV = (text) => {
-    const rows = []; let row = []; let current = ''; let inQuotes = false;
-    for (let i = 0; i < text.length; i++) {
-        const char = text[i];
-        if (char === '"' && text[i + 1] === '"') { current += '"'; i++; }
-        else if (char === '"') { inQuotes = !inQuotes; }
-        else if (char === ',' && !inQuotes) { row.push(current); current = ''; }
-        else if (char === '\n' && !inQuotes) { row.push(current); rows.push(row); row = []; current = ''; }
-        else if (char !== '\r') { current += char; }
-    }
-    if (current !== '' || text[text.length - 1] === ',') row.push(current);
-    if (row.length > 0) rows.push(row);
-    return rows;
 };

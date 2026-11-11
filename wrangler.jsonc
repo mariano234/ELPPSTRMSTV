@@ -3,7 +3,10 @@
   "name": "elpepestreamstv",
   "compatibility_date": "2026-03-01",
   "observability": {
-    "enabled": true
+    "enabled": true,
+    "logs": {
+      "invocation_logs": false
+    }
   },
   "assets": {
     "not_found_handling": "single-page-application"

@@ -5,7 +5,7 @@ export default function LazyImage({ src, alt, className, eager = false }) {
   const imgRef = useRef(null);
 
   useEffect(() => {
-    if (eager) return; 
+    if (eager || typeof IntersectionObserver === 'undefined') return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -22,12 +22,16 @@ export default function LazyImage({ src, alt, className, eager = false }) {
 
   return (
     <div ref={imgRef} className={`w-full h-full bg-neutral-900 ${!isVisible ? 'animate-pulse' : ''}`}>
-      {isVisible && (
+      {(isVisible || eager || typeof IntersectionObserver === 'undefined') && (
         <img
           src={src}
           alt={alt}
           className={`${className} ${eager ? '' : 'transition-opacity duration-500 opacity-0'}`}
           onLoad={(e) => { if (!eager) e.target.classList.remove('opacity-0'); }}
+          onError={(e) => {
+            if (!e.target.src.endsWith('/poster-placeholder.svg')) e.target.src = '/poster-placeholder.svg';
+            e.target.classList.remove('opacity-0');
+          }}
           loading={eager ? "eager" : "lazy"}
         />
       )}
