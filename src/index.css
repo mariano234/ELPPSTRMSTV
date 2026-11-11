@@ -25,6 +25,25 @@ body {
 .stream-player .plyr { width: 100%; height: 100%; }
 .stream-player .plyr__video-wrapper { height: 100%; }
 .stream-player .plyr video { width: 100%; height: 100%; object-fit: contain; }
+.stream-player__live-label { display: none; }
+@media (max-width: 767px), (max-width: 1023px) and (hover: none) and (pointer: coarse) {
+    .stream-player .plyr__progress__container,
+    .stream-player .plyr__time { display: none; }
+    .stream-player__live-label {
+        display: block;
+        position: absolute;
+        top: .65rem;
+        left: .65rem;
+        z-index: 11;
+        padding: .25rem .45rem;
+        border-radius: .3rem;
+        background: #991b1b;
+        color: white;
+        font-size: .7rem;
+        font-weight: 700;
+        pointer-events: none;
+    }
+}
 .stream-cast { position: relative; display: flex; flex: 0 0 auto; }
 .stream-cast .stream-cast__button svg { fill: none; }
 .stream-cast__button[aria-pressed="true"] { color: var(--plyr-color-main); }

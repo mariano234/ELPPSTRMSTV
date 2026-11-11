@@ -163,6 +163,7 @@ test('disconnecting while a playlist is loading cancels it without a spurious er
   let resolveManifest;
   const manifestPending = new Promise(resolve => { resolveManifest = resolve; });
   await page.route('https://ppstreams.test/api/stream/**', async route => {
+    if (/\/a{42}1\/index\.m3u8$/.test(new URL(route.request().url()).pathname)) return route.fallback();
     await manifestPending;
     await route.fulfill({ contentType: 'application/x-mpegurl', body: '#EXTM3U\n#EXTINF:4,\nseg.ts' }).catch(() => {});
   });
@@ -300,6 +301,31 @@ for (const heights of [[720], [720, 360]]) {
     }
   });
 }
+
+test('the mobile native player offers quality and sends that resolution to Cast', async ({ page }) => {
+  await fixtures(page, { premium: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route('https://ppstreams.test/api/stream/*/index.m3u8*', route => {
+    const quality = new URL(route.request().url()).searchParams.get('quality');
+    const variants = (quality ? [Number(quality)] : [720, 360]).map(height =>
+      `#EXT-X-STREAM-INF:BANDWIDTH=${height * 2000},RESOLUTION=${Math.round(height * 16 / 9)}x${height}\n${height}.m3u8`);
+    return route.fulfill({ contentType: 'application/x-mpegurl', body: `#EXTM3U\n${variants.join('\n')}\n` });
+  });
+  await page.goto('https://ppstreams.test/directos');
+  await expect(page.locator('video')).toHaveAttribute('playsinline', '');
+  await expect(page.locator('.stream-player__live-label')).toBeVisible();
+  await expect(page.locator('.plyr__progress__container')).toBeHidden();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('menuitem', { name: /Quality/ }).click();
+  await page.getByRole('menuitemradio', { name: /360p/ }).click();
+  await expect.poll(() => page.locator('video').evaluate(video => new URL(video.src).searchParams.get('quality'))).toBe('360');
+  await page.getByRole('button', { name: /Enviar a TV/ }).click();
+  await expect.poll(() => page.evaluate(() => window.__castMetrics.loads.map(media => new URL(media.contentId).searchParams.get('quality')))).toEqual(['360']);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('menuitem', { name: /Quality/ }).click();
+  await page.getByRole('menuitemradio', { name: /Auto/ }).click();
+  await expect.poll(() => page.evaluate(() => window.__castMetrics.loads.map(media => new URL(media.contentId).searchParams.get('quality')))).toEqual(['360', null]);
+});
 
 test('catalogue failures are visible and Retry loads the catalogue', async ({ page }) => {
   const errors = await fixtures(page, { libraryStatus: 503, authenticated: false });

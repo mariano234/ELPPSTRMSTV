@@ -58,7 +58,7 @@ export function loadGoogleCast() {
   return defaultLoader();
 }
 
-export function getCastMediaUrl(source, origin) {
+export function getCastMediaUrl(source, origin, quality = 0) {
   const url = new URL(source, origin);
   const hostname = url.hostname.replace(/^\[|\]$/g, '');
   if (url.protocol !== 'https:' || hostname === 'localhost' || hostname.endsWith('.localhost') ||
@@ -70,6 +70,7 @@ export function getCastMediaUrl(source, origin) {
   }
   url.search = '';
   url.hash = '';
+  if (quality) url.searchParams.set('quality', quality);
   return url.href;
 }
 

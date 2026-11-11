@@ -79,6 +79,8 @@ function fixture(t) {
         if (JSON.parse(options.body).patreon) {
           assert.equal(headers.get('Cookie'), `angelthump.sid=${env.ANGELTHUMP_SID || 'legacy-private-sid'}`);
           premiumTokens.add(token);
+        } else if (url.pathname === '/elpintaunas/token' && env.ANGELTHUMP_PASSWORD) {
+          assert.equal(headers.get('Cookie'), 'server-only-stream-session=fixture');
         }
         state.minted.push(token);
         return Response.json({ token, expires_in: 3600 });
@@ -88,7 +90,7 @@ function fixture(t) {
         assert.ok(state.minted.includes(token));
         if (token === state.rejected) return new Response('expired', { status: 403 });
         if (state.redirect) return new Response(null, { status: 302, headers: { Location: 'https://unrelated.invalid/video' } });
-        const mediaHost = premiumTokens.has(token) ? 'nyc-patreon.angelthump.com' : 'video-cdn.angelthump.com';
+        const mediaHost = premiumTokens.has(token) ? 'nyc-patreon.angelthump.com' : 'sfo1.angelthump.com';
         const variants = [
           `#EXT-X-STREAM-INF:BANDWIDTH=1800000,RESOLUTION=1280x720\nhttps://${mediaHost}/${token}/high/index.m3u8`,
           `#EXT-X-STREAM-INF:BANDWIDTH=640000,RESOLUTION=640x360\nhttps://${mediaHost}/${token}/low/index.m3u8`,
@@ -97,7 +99,7 @@ function fixture(t) {
         return new Response(`#EXTM3U\n#EXT-X-DEFINE:NAME="private",VALUE="${token}"\n${variants.join('\n')}\n`);
       }
     }
-    if (['video-cdn.angelthump.com', 'nyc-patreon.angelthump.com'].includes(url.hostname)) {
+    if (['sfo1.angelthump.com', 'nyc-patreon.angelthump.com'].includes(url.hostname)) {
       if (url.pathname.endsWith('/index.m3u8')) {
         return new Response('#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-MAP:URI="../init.mp4"\n#EXTINF:4,\nclip.m4s\n');
       }
@@ -279,6 +281,7 @@ test('browser playback requires the issuing session and never exposes provider c
   const before = f.state.queries;
   const partial = await f.media(segment, { cookie, headers: { Range: 'bytes=0-3' } });
   assert.equal(partial.status, 206);
+  assert.ok(f.state.calls.some(call => call.url.hostname === 'sfo1.angelthump.com' && call.url.pathname.endsWith('/clip.m4s')));
   assert.equal(partial.headers.get('Content-Range'), 'bytes 0-3/10');
   assert.equal(partial.headers.has('Set-Cookie'), false);
   assert.deepEqual(new Uint8Array(await partial.arrayBuffer()), new Uint8Array([1, 2, 3, 4]));
@@ -304,6 +307,24 @@ test('Cast plays beyond one hour through the same rendition URL after token rene
   assert.equal((await f.media(cast.source, { requestOrigin: 'https://elsewhere.invalid' })).status, 403);
   f.advance(7 * 60 * 60 * 1000);
   assert.equal((await f.media(cast.source, options)).status, 401);
+});
+
+test('a fixed-quality Cast master keeps only the chosen resolution across token renewal', async t => {
+  const f = fixture(t);
+  const cast = await f.permit(await f.authenticate(), 'cast');
+  const url = new URL(cast.source, origin);
+  url.searchParams.set('quality', '360');
+  const first = await f.media(url);
+  assert.equal(first.status, 200);
+  const text = await first.text();
+  assert.match(text, /RESOLUTION=640x360/);
+  assert.doesNotMatch(text, /RESOLUTION=1280x720/);
+  assert.equal(lines(text).length, 1);
+  f.advance(61 * 60 * 1000);
+  assert.equal((await f.media(lines(text)[0])).status, 200);
+  assert.ok(f.state.calls.some(call => call.url.pathname === `/${f.state.minted[1]}/low/index.m3u8`));
+  url.searchParams.set('quality', '480');
+  assert.equal((await f.media(url)).status, 404);
 });
 
 test('Cast gets a full eight hours when the browser session is about to expire', async t => {

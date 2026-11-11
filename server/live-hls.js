@@ -2,8 +2,12 @@ import { getStreamToken, masterUrl } from './angelthump.js';
 import { digest, seal, unseal, validId } from './live-crypto.js';
 import { appOrigin, errorResponse, fetchProvider, LiveError, privateHeaders } from './live-http.js';
 import { requirePlayback, streamUrl } from './live-playback.js';
+import { variantHeight } from '../shared/hls-quality.js';
 
-const HOSTS = ['vigor.angelthump.com', 'video-cdn.angelthump.com', 'ams1.angelthump.com', 'nyc-patreon.angelthump.com'];
+const HOSTS = [
+  'vigor.angelthump.com', 'video-cdn.angelthump.com', 'ams1.angelthump.com',
+  'sfo1.angelthump.com', 'nyc-patreon.angelthump.com',
+];
 const PLAYLIST_TAGS = new Set(['#EXT-X-MEDIA', '#EXT-X-I-FRAME-STREAM-INF', '#EXT-X-IMAGE-STREAM-INF']);
 const RESOURCE_TAGS = new Set(['#EXT-X-KEY', '#EXT-X-SESSION-KEY', '#EXT-X-MAP', '#EXT-X-PART', '#EXT-X-PRELOAD-HINT']);
 const URI_ATTR = /\bURI="([^"]+)"/g;
@@ -86,7 +90,7 @@ async function parsePlaylist(text) {
     const line = row.trim();
     if (!line) continue;
     if (!line.startsWith('#')) {
-      nodes.push({ line, refs: [{ uri: line, playlist: Boolean(variant), id: variant ? await selector(variant) : null }] });
+      nodes.push({ line, variant, refs: [{ uri: line, playlist: Boolean(variant), id: variant ? await selector(variant) : null }] });
       variant = null;
       continue;
     }
@@ -148,6 +152,10 @@ async function servePlaylist(request, env, rawGrant, grant, headers) {
   headers.set('Content-Type', 'application/x-mpegurl');
   const requestUrl = new URL(request.url);
   const selector = requestUrl.searchParams.get('p');
+  const quality = requestUrl.searchParams.get('quality');
+  if (quality !== null && (selector || !/^[1-9]\d{0,4}$/.test(quality))) {
+    throw new LiveError(400, 'Calidad de vídeo inválida.');
+  }
   const path = selector && await unseal(env.LIVE_MEDIA_KEY, 'playlist', selector);
   if (selector && (path?.grant !== rawGrant || !Array.isArray(path.trail) || path.trail.length > 3)) {
     throw new LiveError(404, 'Lista de reproducción inválida.');
@@ -167,6 +175,17 @@ async function servePlaylist(request, env, rawGrant, grant, headers) {
     }
   }
   const origin = appOrigin(env);
+  let { nodes } = playlist;
+  if (quality !== null) {
+    const selected = Number(quality);
+    if (!nodes.some(node => node.variant && variantHeight(node.variant) === selected)) {
+      throw new LiveError(404, 'La calidad seleccionada ya no está disponible.');
+    }
+    nodes = nodes.filter(node => {
+      const variant = node.variant || (node.line.startsWith('#EXT-X-STREAM-INF:') ? node.line : null);
+      return !variant || variantHeight(variant) === selected;
+    });
+  }
   const expires = Math.min(grant.expires_at, Date.now() + 10 * 60 * 1000);
   const renderRef = async ref => {
     if (ref.inline) return ref.uri;
@@ -180,7 +199,7 @@ async function servePlaylist(request, env, rawGrant, grant, headers) {
     const s = await seal(env.LIVE_MEDIA_KEY, 'segment', { grant: rawGrant, target: target.href, expires });
     return streamUrl(origin, rawGrant, 'segment', { s }).href;
   };
-  const lines = await Promise.all(playlist.nodes.map(async node => {
+  const lines = await Promise.all(nodes.map(async node => {
     let line = node.line;
     for (const ref of node.refs) {
       const url = await renderRef(ref);

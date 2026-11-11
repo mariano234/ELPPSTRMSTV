@@ -11,7 +11,7 @@ function activeGrant(media) {
   } catch { return null; }
 }
 
-export default function CastButton({ channel, mode, onConnected, onSessionRenewed, t }) {
+export default function CastButton({ channel, mode, quality, onConnected, onSessionRenewed, t }) {
   const [context, setContext] = useState(null);
   const [castState, setCastState] = useState('INITIALIZING');
   const [busy, setBusy] = useState(false);
@@ -57,7 +57,8 @@ export default function CastButton({ channel, mode, onConnected, onSessionRenewe
       const mediaSession = session.getMediaSession?.();
       const media = mediaSession?.media;
       const previous = activeGrant(media);
-      if (previous && media.customData?.broadcast === broadcast && media.customData?.expiresAt > Date.now() && mediaSession.playerState !== 'IDLE') {
+      if (previous && media.customData?.broadcast === broadcast && media.customData?.expiresAt > Date.now() &&
+          (quality === null || (media.customData.quality ?? 0) === quality) && mediaSession.playerState !== 'IDLE') {
         lastLoad.current = previous;
         connectedCallback.current();
         return;
@@ -73,11 +74,11 @@ export default function CastButton({ channel, mode, onConnected, onSessionRenewe
       try {
         permit = await requestPlayback(channel, mode, 'cast', controller.signal);
         if (active && Number.isFinite(permit.sessionExpiresAt)) onSessionRenewed(permit.sessionExpiresAt);
-        const url = getCastMediaUrl(permit.source, window.location.origin);
+        const url = getCastMediaUrl(permit.source, window.location.origin, quality ?? 0);
         const format = await detectHlsFormat(url, { signal: controller.signal });
         if (!active || currentGeneration !== generation || context.getCurrentSession() !== session) return;
         const request = createCastRequest(window, url, format);
-        request.media.customData = { broadcast, expiresAt: permit.expiresAt };
+        request.media.customData = { broadcast, expiresAt: permit.expiresAt, quality: quality ?? 0 };
         await Promise.race([
           session.loadMedia(request),
           new Promise((_resolve, reject) => {
@@ -124,7 +125,7 @@ export default function CastButton({ channel, mode, onConnected, onSessionRenewe
       controller?.abort();
       context.removeEventListener(type, onSession);
     };
-  }, [context, channel, mode, onSessionRenewed]);
+  }, [context, channel, mode, quality, onSessionRenewed]);
 
   const connected = castState === 'CONNECTED';
   const handleClick = async () => {
