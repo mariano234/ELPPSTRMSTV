@@ -1,7 +1,8 @@
-function formatTime(seconds) {
-  const whole = Math.floor(seconds);
+function formatRemaining(seconds) {
+  if (seconds === null) return '--:--';
+  const whole = Math.floor(Math.max(0, seconds));
   const minutes = String(Math.floor(whole / 60)).padStart(2, '0');
-  return `${minutes}:${String(whole % 60).padStart(2, '0')}`;
+  return `${whole > 0 ? '-' : ''}${minutes}:${String(whole % 60).padStart(2, '0')}`;
 }
 
 function seekableWindow(video) {
@@ -10,6 +11,21 @@ function seekableWindow(video) {
   const start = ranges.start(0);
   const end = ranges.end(ranges.length - 1);
   return Number.isFinite(start) && Number.isFinite(end) && end > start ? { ranges, start, end } : null;
+}
+
+function remainingTime(video, window, position) {
+  if (!Number.isFinite(position)) return null;
+  // On desktop Plyr counts down to the end of the playlist. Live HLS can
+  // report an infinite duration on Android, so use its seekable edge instead.
+  if (window) return window.end - position;
+  const duration = video.duration;
+  if (Number.isFinite(duration) && duration > 0) return duration - position;
+  const buffered = video.buffered;
+  for (let index = 0; index < buffered.length; index++) {
+    const end = buffered.end(index);
+    if (position >= buffered.start(index) && position <= end) return end - position;
+  }
+  return null;
 }
 
 export function addLiveTimeline(controls, video, signal) {
@@ -27,6 +43,7 @@ export function addLiveTimeline(controls, video, signal) {
   const time = document.createElement('div');
   time.className = 'plyr__controls__item plyr__time plyr__time--current';
   time.setAttribute('role', 'timer');
+  time.setAttribute('aria-label', 'Tiempo restante del tramo disponible');
   track.append(slider);
   progress.append(track);
   const mute = controls.querySelector(':scope > .plyr__volume, :scope > [data-plyr="mute"]');
@@ -34,33 +51,27 @@ export function addLiveTimeline(controls, video, signal) {
   controls.insertBefore(time, mute);
 
   let editing = false;
-  // Keep the clock anchored to the media timeline as the live window slides.
-  let origin;
-  const elapsed = position => Math.max(0, position - (origin ?? position));
-  const show = (percentage, elapsed) => {
+  const show = (percentage, remaining) => {
     slider.style.setProperty('--value', `${percentage}%`);
-    time.textContent = formatTime(elapsed);
+    time.textContent = formatRemaining(remaining);
     slider.setAttribute('aria-valuetext', time.textContent);
   };
   const sync = () => {
     const window = seekableWindow(video);
-    const position = Number.isFinite(video.currentTime) ? video.currentTime : 0;
-    if (origin === undefined && (window || video.readyState >= 1 || position > 0)) {
-      origin = position || window?.start || 0;
-    }
-    if (window && window.start < origin) origin = window.start;
+    const position = video.currentTime;
     slider.disabled = !window;
     if (editing && window) return;
     if (!window) editing = false;
-    const percentage = window ? Math.max(0, Math.min(100, 100 * (position - window.start) / (window.end - window.start))) : 0;
+    const percentage = window && Number.isFinite(position)
+      ? Math.max(0, Math.min(100, 100 * (position - window.start) / (window.end - window.start))) : 0;
     slider.value = percentage;
-    show(percentage, elapsed(position));
+    show(percentage, remainingTime(video, window, position));
   };
   slider.addEventListener('input', () => {
     const window = seekableWindow(video);
     if (!window) return;
     editing = true;
-    show(slider.valueAsNumber, elapsed(window.start + (window.end - window.start) * slider.valueAsNumber / 100));
+    show(slider.valueAsNumber, (window.end - window.start) * (100 - slider.valueAsNumber) / 100);
   }, { signal });
   slider.addEventListener('change', () => {
     const window = seekableWindow(video);
@@ -85,11 +96,10 @@ export function addLiveTimeline(controls, video, signal) {
     video.addEventListener(event, sync, { signal });
   }
   video.addEventListener('emptied', () => {
-    origin = undefined;
     editing = false;
     slider.disabled = true;
     slider.value = 0;
-    show(0, 0);
+    show(0, null);
   }, { signal });
   sync();
 }

@@ -339,67 +339,75 @@ test('the mobile native player offers quality and sends that resolution to Cast'
 test.describe('Android live timeline', () => {
   test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
 
-  test('touch seeks inside the moving live window and the clock keeps advancing independently', async ({ page }) => {
+  test('touch seeks inside the live window and the clock counts down to its moving end', async ({ page }) => {
     await fixtures(page, { premium: true });
     await page.addInitScript(agent => {
       Object.defineProperty(navigator, 'userAgent', { value: agent });
       Object.defineProperty(window, 'MediaSource', { value: undefined });
       Object.defineProperty(window, 'ManagedMediaSource', { value: undefined });
       window.liveWindow = [];
+      window.bufferedRanges = [];
       let currentTime = 96;
       Object.defineProperties(HTMLMediaElement.prototype, {
         currentTime: { get: () => currentTime, set: value => { currentTime = value; } },
         seekable: { get: () => ({ length: window.liveWindow.length ? 1 : 0, start: () => window.liveWindow[0], end: () => window.liveWindow[1] }) },
+        buffered: { get: () => ({ length: window.bufferedRanges.length, start: index => window.bufferedRanges[index][0], end: index => window.bufferedRanges[index][1] }) },
         duration: { get: () => Infinity },
       });
     }, androidAgent);
     await page.goto('https://ppstreams.test/directos');
     const slider = page.getByRole('slider', { name: 'Posición en el directo' });
     const timer = page.getByRole('timer');
+    const video = page.locator('video');
     await expect(slider).toBeDisabled();
+    await expect(timer).toHaveText('--:--');
     await page.evaluate(() => {
       const video = document.querySelector('video');
       video.currentTime = 98;
       video.dispatchEvent(new Event('timeupdate'));
     });
-    await expect(timer).toHaveText('00:02');
+    await expect(timer).toHaveText('--:--');
     await page.evaluate(() => {
       window.liveWindow = [100, 140];
       document.querySelector('video').dispatchEvent(new Event('progress'));
     });
     await expect(slider).toBeEnabled();
-    await expect(timer).toHaveText('00:02');
+    await expect(timer).toHaveText('-00:42');
     const box = await slider.boundingBox();
     await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
-    const video = page.locator('video');
     await expect.poll(() => video.evaluate(media => media.currentTime)).toBeCloseTo(120, 0);
+    await expect(timer).toHaveText(/-00:(19|20)/);
 
     await page.evaluate(() => {
       window.liveWindow = [120, 160];
       document.querySelector('video').dispatchEvent(new Event('timeupdate'));
     });
-    await expect(timer).toHaveText(/00:2[34]/);
+    await expect(timer).toHaveText(/-00:(39|40)/);
     await page.touchscreen.tap(box.x + box.width * 0.75, box.y + box.height / 2);
     await expect.poll(() => video.evaluate(media => media.currentTime)).toBeGreaterThan(145);
     await expect.poll(() => video.evaluate(media => media.currentTime)).toBeLessThan(155);
 
+    await video.evaluate(media => { media.currentTime = 156; media.dispatchEvent(new Event('timeupdate')); });
+    await expect(timer).toHaveText('-00:04');
+    await page.touchscreen.tap(box.x + box.width * 0.25, box.y + box.height / 2);
+    await expect(timer).toHaveText(/-00:(29|30|31)/);
+    await video.evaluate(media => { media.currentTime = 161; media.dispatchEvent(new Event('timeupdate')); });
+    await expect(timer).toHaveText('00:00');
+
     await page.evaluate(() => {
       window.liveWindow = [];
+      window.bufferedRanges = [[150, 159], [162, 170]];
       const video = document.querySelector('video');
       video.currentTime = 155;
       video.dispatchEvent(new Event('timeupdate'));
     });
     await expect(slider).toBeDisabled();
-    await expect(timer).toHaveText('00:59');
+    await expect(timer).toHaveText('-00:04');
 
-    await page.evaluate(() => {
-      const video = document.querySelector('video');
-      video.currentTime = 158;
-      video.dispatchEvent(new Event('timeupdate'));
-    });
-    await expect(timer).toHaveText('01:02');
+    await video.evaluate(media => { media.currentTime = 158; media.dispatchEvent(new Event('timeupdate')); });
+    await expect(timer).toHaveText('-00:01');
     await video.evaluate(media => media.dispatchEvent(new Event('emptied')));
-    await expect(timer).toHaveText('00:00');
+    await expect(timer).toHaveText('--:--');
   });
 });
 
