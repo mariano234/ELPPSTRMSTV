@@ -6,7 +6,7 @@ import { variantHeight } from '../shared/hls-quality.js';
 
 const HOSTS = [
   'vigor.angelthump.com', 'video-cdn.angelthump.com', 'ams1.angelthump.com',
-  'sfo1.angelthump.com', 'nyc-patreon.angelthump.com',
+  'sfo1.angelthump.com', 'nyc1.angelthump.com', 'fra1.angelthump.com', 'nyc-patreon.angelthump.com',
 ];
 const PLAYLIST_TAGS = new Set(['#EXT-X-MEDIA', '#EXT-X-I-FRAME-STREAM-INF', '#EXT-X-IMAGE-STREAM-INF']);
 const RESOURCE_TAGS = new Set(['#EXT-X-KEY', '#EXT-X-SESSION-KEY', '#EXT-X-MAP', '#EXT-X-PART', '#EXT-X-PRELOAD-HINT']);

@@ -187,7 +187,6 @@ export default function NativeStreamPlayer({ channel, mode, t, onAccessLost, onS
   return (
     <div className="stream-player w-full h-full bg-black relative flex items-center justify-center">
       <div ref={containerRef} className="w-full h-full absolute inset-0 z-10" />
-      {readySource && !error && <span className="stream-player__live-label">{t.directos}</span>}
       {readySource?.channel === channel && readySource.mode === mode && !error && createPortal(
         <CastButton channel={channel} mode={mode} quality={quality} onConnected={pauseLocal} onSessionRenewed={onSessionRenewed} t={t} />,
         readySource.castSlot,

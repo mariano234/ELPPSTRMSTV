@@ -313,8 +313,8 @@ test('the mobile native player offers quality and sends that resolution to Cast'
   });
   await page.goto('https://ppstreams.test/directos');
   await expect(page.locator('video')).toHaveAttribute('playsinline', '');
-  await expect(page.locator('.stream-player__live-label')).toBeVisible();
-  await expect(page.locator('.plyr__progress__container')).toBeHidden();
+  await expect(page.locator('.stream-player__live-label')).toHaveCount(0);
+  await expect(page.locator('.plyr__progress__container')).toBeVisible();
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('menuitem', { name: /Quality/ }).click();
   await page.getByRole('menuitemradio', { name: /360p/ }).click();

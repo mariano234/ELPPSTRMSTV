@@ -99,8 +99,11 @@ function fixture(t) {
         return new Response(`#EXTM3U\n#EXT-X-DEFINE:NAME="private",VALUE="${token}"\n${variants.join('\n')}\n`);
       }
     }
-    if (['sfo1.angelthump.com', 'nyc-patreon.angelthump.com'].includes(url.hostname)) {
+    if (['sfo1.angelthump.com', 'nyc1.angelthump.com', 'fra1.angelthump.com', 'nyc-patreon.angelthump.com'].includes(url.hostname)) {
       if (url.pathname.endsWith('/index.m3u8')) {
+        if (url.hostname === 'sfo1.angelthump.com' && state.normalRefreshHost) {
+          return new Response(null, { status: 302, headers: { Location: `https://${state.normalRefreshHost}${url.pathname}` } });
+        }
         return new Response('#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-MAP:URI="../init.mp4"\n#EXTINF:4,\nclip.m4s\n');
       }
       if (state.html) return new Response('<html>Unexpected</html>', { headers: { 'Content-Type': 'text/html' } });
@@ -307,6 +310,24 @@ test('Cast plays beyond one hour through the same rendition URL after token rene
   assert.equal((await f.media(cast.source, { requestOrigin: 'https://elsewhere.invalid' })).status, 403);
   f.advance(7 * 60 * 60 * 1000);
   assert.equal((await f.media(cast.source, options)).status, 401);
+});
+
+test('the normal stream can refresh on a different AngelThump server', async t => {
+  const f = fixture(t);
+  const cookie = await f.authenticate();
+  const grant = await f.permit(cookie, 'browser', 'normal', 'elpintaunas_1');
+  const master = await f.media(grant.source, { cookie });
+  assert.equal(master.status, 200);
+  const rendition = lines(await master.text())[0];
+  for (const host of ['sfo1.angelthump.com', 'nyc1.angelthump.com', 'fra1.angelthump.com']) {
+    f.state.normalRefreshHost = host === 'sfo1.angelthump.com' ? null : host;
+    f.advance(5000);
+    const playlist = await f.media(rendition, { cookie });
+    assert.equal(playlist.status, 200);
+    const fragment = await f.media(lines(await playlist.text())[0], { cookie });
+    assert.equal(fragment.status, 200);
+    assert.equal(f.state.calls.at(-1).url.hostname, host);
+  }
 });
 
 test('a fixed-quality Cast master keeps only the chosen resolution across token renewal', async t => {
