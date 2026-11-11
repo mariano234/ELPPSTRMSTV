@@ -5,6 +5,18 @@ import CastButton from './CastButton';
 import 'plyr/dist/plyr.css';
 import playerIcons from 'plyr/dist/plyr.svg';
 
+function playlistError(details) {
+  const xhr = details.networkDetails;
+  if (!(xhr instanceof XMLHttpRequest) || xhr.responseType && xhr.responseType !== 'text' ||
+      !xhr.getResponseHeader('Content-Type')?.includes('application/json')) return null;
+  try {
+    const url = new URL(xhr.responseURL);
+    if (url.origin !== window.location.origin || !url.pathname.startsWith('/api/stream/')) return null;
+    const { error } = JSON.parse(xhr.responseText);
+    return typeof error === 'string' && error.length <= 240 ? error : null;
+  } catch { return null; }
+}
+
 export default function NativeStreamPlayer({ channel, mode, t, onAccessLost, onSessionRenewed }) {
   const containerRef = useRef(null);
   const playerRef = useRef(null);
@@ -46,8 +58,11 @@ export default function NativeStreamPlayer({ channel, mode, t, onAccessLost, onS
         setStatus('Cargando directo…');
         const video = document.createElement('video');
         const native = video.canPlayType('application/vnd.apple.mpegurl');
+        const agent = navigator.userAgent;
+        const desktopChromium = /Windows NT|Macintosh|X11/.test(agent) && /\b(?:Chrome|Chromium|Edg)\//.test(agent);
+        const preferNative = native && !desktopChromium;
         const [{ default: Plyr }, hlsModule] = await Promise.all([
-          import('plyr'), native ? null : import('hls.js'),
+          import('plyr'), preferNative ? null : import('hls.js'),
         ]);
         if (!active) return;
         const Hls = hlsModule?.default;
@@ -70,7 +85,7 @@ export default function NativeStreamPlayer({ channel, mode, t, onAccessLost, onS
           video.play().catch(() => { /* Autoplay may require a user gesture. */ });
         };
         // Safari and TVs with native HLS should use their own media stack.
-        if (native) {
+        if (native && !Hls?.isSupported()) {
           video.addEventListener('error', () => fail('El directo no está disponible o este dispositivo no admite su formato.'), { signal: controller.signal });
           video.addEventListener('loadedmetadata', ready, { once: true, signal: controller.signal });
           retryTimer = setTimeout(() => fail('El directo no responde. Comprueba la conexión y vuelve a intentarlo.'), 20000);
@@ -92,9 +107,13 @@ export default function NativeStreamPlayer({ channel, mode, t, onAccessLost, onS
           });
           hls.on(Hls.Events.ERROR, (_event, data) => {
             if (!active || !data.fatal) return;
+            const upstreamError = playlistError(data);
             if ([401, 403].includes(data.response?.code)) {
               hls.stopLoad();
               onAccessLost('El permiso de Directos ha terminado. Vuelve a identificarte con Discord.');
+            } else if (upstreamError) {
+              hls.stopLoad();
+              fail(upstreamError);
             } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR && networkRetries++ < 2) {
               clearTimeout(retryTimer);
               retryTimer = setTimeout(() => { if (active) hls.startLoad(); }, 1000);

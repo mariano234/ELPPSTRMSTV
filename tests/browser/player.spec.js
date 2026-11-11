@@ -252,6 +252,22 @@ test('a premium member can choose Normal and sign out from Directos', async ({ p
   expect(errors).toEqual([]);
 });
 
+test('desktop Chromium uses HLS.js for Premium and shows the stream server error', async ({ page }) => {
+  await fixtures(page, { premium: true });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', { value: navigator.userAgent.replace('HeadlessChrome/', 'Chrome/') });
+  });
+  await page.route('https://ppstreams.test/api/stream/*/index.m3u8', route => route.fulfill({
+    status: 502, json: { error: 'AngelThump no devolvió una lista HLS válida.' },
+  }));
+  const request = page.waitForRequest(req => new URL(req.url()).pathname.endsWith('/index.m3u8'));
+
+  await page.goto('https://ppstreams.test/directos');
+
+  expect((await request).resourceType()).toBe('xhr');
+  await expect(page.getByRole('alert')).toContainText('AngelThump no devolvió una lista HLS válida.');
+});
+
 test('catalogue failures are visible and Retry loads the catalogue', async ({ page }) => {
   const errors = await fixtures(page, { libraryStatus: 503, authenticated: false });
   await page.goto('https://ppstreams.test/inicio');
