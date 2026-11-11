@@ -3,7 +3,7 @@ import { digest, seal, unseal, validId } from './live-crypto.js';
 import { appOrigin, errorResponse, fetchProvider, LiveError, privateHeaders } from './live-http.js';
 import { requirePlayback, streamUrl } from './live-playback.js';
 
-const HOSTS = ['vigor.angelthump.com', 'video-cdn.angelthump.com', 'ams1.angelthump.com'];
+const HOSTS = ['vigor.angelthump.com', 'video-cdn.angelthump.com', 'ams1.angelthump.com', 'nyc-patreon.angelthump.com'];
 const PLAYLIST_TAGS = new Set(['#EXT-X-MEDIA', '#EXT-X-I-FRAME-STREAM-INF', '#EXT-X-IMAGE-STREAM-INF']);
 const RESOURCE_TAGS = new Set(['#EXT-X-KEY', '#EXT-X-SESSION-KEY', '#EXT-X-MAP', '#EXT-X-PART', '#EXT-X-PRELOAD-HINT']);
 const URI_ATTR = /\bURI="([^"]+)"/g;

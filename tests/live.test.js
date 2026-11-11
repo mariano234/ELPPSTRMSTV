@@ -45,6 +45,7 @@ function fixture(t) {
     ANGELTHUMP_SID: 'private-sid-fixture', ANGELTHUMP_PASSWORD: 'private-password-fixture' };
   let codeChallenge;
   const prefix = randomId().slice(0, 12);
+  const premiumTokens = new Set();
   t.mock.method(globalThis, 'fetch', async (input, options = {}) => {
     const url = new URL(input);
     const headers = new Headers(options.headers);
@@ -74,8 +75,11 @@ function fixture(t) {
     }
     if (url.hostname === 'vigor.angelthump.com') {
       if (url.pathname.endsWith('/token')) {
-        if (JSON.parse(options.body).patreon) assert.equal(headers.get('Cookie'), `angelthump.sid=${env.ANGELTHUMP_SID || 'legacy-private-sid'}`);
         const token = `private-origin-token-${prefix}-${state.minted.length + 1}`;
+        if (JSON.parse(options.body).patreon) {
+          assert.equal(headers.get('Cookie'), `angelthump.sid=${env.ANGELTHUMP_SID || 'legacy-private-sid'}`);
+          premiumTokens.add(token);
+        }
         state.minted.push(token);
         return Response.json({ token, expires_in: 3600 });
       }
@@ -84,15 +88,16 @@ function fixture(t) {
         assert.ok(state.minted.includes(token));
         if (token === state.rejected) return new Response('expired', { status: 403 });
         if (state.redirect) return new Response(null, { status: 302, headers: { Location: 'https://unrelated.invalid/video' } });
+        const mediaHost = premiumTokens.has(token) ? 'nyc-patreon.angelthump.com' : 'video-cdn.angelthump.com';
         const variants = [
-          `#EXT-X-STREAM-INF:BANDWIDTH=1800000,RESOLUTION=1280x720\nhttps://video-cdn.angelthump.com/${token}/high/index.m3u8`,
-          `#EXT-X-STREAM-INF:BANDWIDTH=640000,RESOLUTION=640x360\nhttps://video-cdn.angelthump.com/${token}/low/index.m3u8`,
+          `#EXT-X-STREAM-INF:BANDWIDTH=1800000,RESOLUTION=1280x720\nhttps://${mediaHost}/${token}/high/index.m3u8`,
+          `#EXT-X-STREAM-INF:BANDWIDTH=640000,RESOLUTION=640x360\nhttps://${mediaHost}/${token}/low/index.m3u8`,
         ];
         if (state.minted.length > 1) variants.reverse();
         return new Response(`#EXTM3U\n#EXT-X-DEFINE:NAME="private",VALUE="${token}"\n${variants.join('\n')}\n`);
       }
     }
-    if (url.hostname === 'video-cdn.angelthump.com') {
+    if (['video-cdn.angelthump.com', 'nyc-patreon.angelthump.com'].includes(url.hostname)) {
       if (url.pathname.endsWith('/index.m3u8')) {
         return new Response('#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-MAP:URI="../init.mp4"\n#EXTINF:4,\nclip.m4s\n');
       }
@@ -183,7 +188,13 @@ test('the existing private Discord message is an optional server-only credential
   const permit = await f.permit(cookie, 'cast');
   const playlist = await f.media(permit.source);
   assert.equal(playlist.status, 200);
-  assert.doesNotMatch(await playlist.text(), /legacy-private-sid/);
+  const master = await playlist.text();
+  assert.doesNotMatch(master, /legacy-private-sid|private-origin-token|angelthump\.com/);
+  const rendition = await f.media(lines(master)[0]);
+  assert.equal(rendition.status, 200);
+  const segment = await f.media(lines(await rendition.text())[0]);
+  assert.equal(segment.status, 200);
+  assert.ok(f.state.calls.some(call => call.url.hostname === 'nyc-patreon.angelthump.com' && call.url.pathname.endsWith('/clip.m4s')));
   assert.equal(f.state.calls.filter(call => call.url.pathname.endsWith('/messages')).length, 1);
   f.advance(16000);
   f.state.credentialMessage = 'Contraseña: solo-normal';
